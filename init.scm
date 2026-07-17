@@ -37,8 +37,7 @@
     #:active (moka-buffer-style #:bg "#88C0D0" #:fg "#2E3440" #:bubble? #t)
     #:inactive (moka-buffer-style #:bg "#3B4252" #:fg "#D8DEE9" #:bubble? #t)
     #:gap 0)
-   (moka-bufferline-enable!))
-
+   (moka-bufferline-enable!)))
 
 (smith-plugin "https://github.com/Ra77a3l3-jar/forest.hx.git"
   (config
