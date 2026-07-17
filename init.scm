@@ -8,6 +8,9 @@
                   smith-prune
                   smith-init))
 
+;; Load Nord theme
+(require "nord.scm")
+
 (smith-plugin "https://github.com/Ra77a3l3-jar/forest.hx.git"
   (config
    ;; Use 'right instead of 'left to move the sidebar.
