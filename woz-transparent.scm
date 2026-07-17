@@ -28,7 +28,7 @@
 (define yellow      "#EBCB8B")  ; nord13 — warnings
 
 ;; ── Style helpers ─────────────────────────────────────────
-(define (fg color)
+(define (mk-fg color)
   (~> (style) (style-fg (theme.string->color color))))
 
 (define (fg+italic color)
