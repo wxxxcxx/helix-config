@@ -1,80 +1,241 @@
 ;; Woz Transparent — woz theme with transparent background
-;; Inherits syntax colors from woz, overrides UI backgrounds to
-;; transparent so your terminal background/gradient shows through.
+;; Nord palette with all UI backgrounds removed so your terminal
+;; background/gradient shows through.
+;;
+;;   nord0  #2E3440    nord4  #D8DEE9    nord7  #8FBCBB   nord11 #BF616A
+;;   nord1  #3B4252    nord5  #E5E9F0    nord8  #88C0D0   nord12 #D08770
+;;   nord2  #434C5E    nord6  #ECEFF4    nord9  #81A1C1   nord13 #EBCB8B
+;;   nord3  #4C566A                         nord10 #5E81AC   nord14 #A3BE8C
+;;                                                           nord15 #B48EAD
 (require "helix/components.scm")
 (require (prefix-in theme. "helix/themes.scm"))
 
-(require "woz.scm")
+;; ── Nord Palette ──────────────────────────────────────────
+(define bg          "#2E3440")  ; nord0
+(define bg-alt      "#3B4252")  ; nord1
+(define bg-hl       "#434C5E")  ; nord2
+(define fg          "#D8DEE9")  ; nord4
+(define fg-dim      "#4C566A")  ; nord3
+(define fg-bright   "#ECEFF4")  ; nord6
+(define accent      "#88C0D0")  ; nord8 — functions
+(define accent-alt  "#81A1C1")  ; nord9 — keywords
+(define accent-dim  "#5E81AC")  ; nord10 — preprocessor
+(define teal        "#8FBCBB")  ; nord7 — types
+(define green       "#A3BE8C")  ; nord14 — strings
+(define orange      "#D08770")  ; nord12 — annotations
+(define red         "#BF616A")  ; nord11 — errors
+(define purple      "#B48EAD")  ; nord15 — numbers
+(define yellow      "#EBCB8B")  ; nord13 — warnings
 
-;; Nord colors reused here for UI foreground text
-(define fg        "#D8DEE9")
-(define fg-dim    "#4C566A")
-(define fg-bright "#ECEFF4")
-(define accent    "#88C0D0")
-(define green     "#A3BE8C")
-(define red       "#BF616A")
-
-;; ── Helpers ───────────────────────────────────────────────
-(define (fg-only color)
+;; ── Style helpers ─────────────────────────────────────────
+(define (fg color)
   (~> (style) (style-fg (theme.string->color color))))
 
-;; ── Derive transparent variant from base woz ──────────────
-(define woz-transparent
-  (~> (theme.get-theme-by-name "woz")
+(define (fg+italic color)
+  (~> (style)
+      (style-fg (theme.string->color color))
+      style-with-italics))
 
-      ;; Editor area — fully transparent background
-      (theme.ui.background (style))
+(define (fg+bold color)
+  (~> (style)
+      (style-fg (theme.string->color color))
+      style-with-bold))
 
-      ;; Popups / menus / help — transparent bg, keep woz text color
-      (theme.ui.popup       (fg-only fg))
-      (theme.ui.popup.info  (fg-only fg))
-      (theme.ui.help        (fg-only fg))
-      (theme.ui.menu        (fg-only fg))
+;; Most scopes use the same colors as woz. For brevity, the hash
+;; only includes scopes whose value differs from a simple fg string.
+;; Everything else is set via the threaded chain below.
+(define woz-transparent-hash
+  (hash
 
-      ;; Menu selected item — invert or just fg
-      (theme.ui.menu.selected   (fg-only accent))
+   ;; ── Base (no background) ──
+   "ui.text" (hash 'fg fg)
 
-      ;; Selection — semi-transparent feeling via fg-only
-      (theme.ui.selection        (fg-only fg-dim))
-      (theme.ui.selection.primary (fg-only fg-dim))
+   ;; ── Cursor ──
+   "ui.cursor"              (hash 'fg fg)
+   "ui.cursor.normal"       (hash 'fg fg)
+   "ui.cursor.insert"       (hash 'fg fg)
+   "ui.cursor.select"       (hash 'fg fg)
+   "ui.cursor.primary"      (hash 'fg fg-bright)
+   "ui.cursor.primary.normal" (hash 'fg fg-bright)
+   "ui.cursor.primary.select" (hash 'fg fg-bright)
+   "ui.cursor.match"        (hash 'fg accent)
 
-      ;; Cursor line — transparent
-      (theme.ui.cursorline        (style))
-      (theme.ui.cursorline.primary (style))
+   ;; ── Line numbers ──
+   "ui.linenr"          (hash 'fg fg-dim)
+   "ui.linenr.selected" (hash 'fg fg)
 
-      ;; Gutter — transparent, keep line numbers (inherited from woz)
-      (theme.ui.gutter        (style))
-      (theme.ui.gutter.selected (style))
+   ;; ── Text colors ──
+   "ui.text.focus"     (hash 'fg fg)
+   "ui.text.info"      (hash 'fg accent)
+   "ui.text.inactive"  (hash 'fg fg-dim)
+   "ui.text.directory" (hash 'fg accent-alt)
 
-      ;; Status line — transparent, keep mode indicator
-      (theme.ui.statusline         (fg-only fg-dim))
-      (theme.ui.statusline.inactive (style))
-      (theme.ui.statusline.normal   (fg-only fg-bright))
-      (theme.ui.statusline.insert   (fg-only fg-bright))
-      (theme.ui.statusline.select   (fg-only fg-bright))
-      (theme.ui.statusline.separator (fg-only fg-dim))
+   ;; ── Statusline mode colors (background only in normal woz) ──
+   "ui.statusline.normal"   (hash 'fg fg-bright)
+   "ui.statusline.insert"   (hash 'fg fg-bright)
+   "ui.statusline.select"   (hash 'fg fg-bright)
+   "ui.statusline.separator" (hash 'fg fg-dim)
 
-      ;; Bufferline — transparent
-      (theme.ui.bufferline           (fg-only fg-dim))
-      (theme.ui.bufferline.active    (fg-only fg))
-      (theme.ui.bufferline.background (style))
+   ;; ── Virtual / Whitespace ──
+   "ui.virtual.whitespace"     (hash 'fg fg-dim)
+   "ui.virtual.indent-guide"   (hash 'fg fg-dim)
+   "ui.virtual.inlay-hint"     (hash 'fg fg-dim)
+   "ui.virtual.inlay-hint.parameter" (hash 'fg fg-dim)
+   "ui.virtual.inlay-hint.type"     (hash 'fg accent-dim)
+   "ui.virtual.wrap"           (hash 'fg fg-dim)
+   "ui.virtual.jump-label"     (hash 'fg accent)
+   "ui.virtual.ruler"          (hash 'fg fg-dim)
 
-      ;; Window border — keep subtle fg
-      (theme.ui.window (fg-only fg-dim))
+   ;; ── Window border ──
+   "ui.window" (hash 'fg fg-dim)
 
-      ;; Picker highlight
-      (theme.ui.highlight           (style))
-      (theme.ui.background.separator (style))
-      (theme.ui.highlight.frameline  (style))
+   ;; ── Menu scrollbar ──
+   "ui.menu.scroll" (hash 'fg fg-dim)
 
-      ;; Debug
-      (theme.ui.debug.breakpoint (fg-only red))
-      (theme.ui.debug.active     (fg-only green))
+   ;; ── Diagnostics ──
+   "error"      (hash 'fg red)
+   "warning"    (hash 'fg yellow)
+   "info"       (hash 'fg accent)
+   "hint"       (hash 'fg fg-dim)
+   "diagnostic.error"        (hash 'fg red)
+   "diagnostic.warning"      (hash 'fg yellow)
+   "diagnostic.info"         (hash 'fg accent)
+   "diagnostic.hint"         (hash 'fg fg-dim)
+   "diagnostic.unnecessary"  (hash 'fg fg-dim)
+   "diagnostic.deprecated"   (hash 'fg fg-dim)
 
-      ;; Inlay hints — dim
-      (theme.ui.virtual.inlay-hint          (fg-only fg-dim))
-      (theme.ui.virtual.inlay-hint.parameter (fg-only fg-dim))
-      (theme.ui.virtual.inlay-hint.type     (fg-only fg-dim))))
+   ;; ── Syntax: comments ──
+   "comment"                    (hash 'fg fg-dim)
+   "comment.line"               (hash 'fg fg-dim)
+   "comment.block"              (hash 'fg fg-dim)
+   "comment.block.documentation" (hash 'fg fg-dim)
 
-;; ── Register ──────────────────────────────────────────────
+   ;; ── Syntax: keywords ──
+   "keyword"                  (hash 'fg accent-alt)
+   "keyword.control"          (hash 'fg accent-alt)
+   "keyword.control.conditional" (hash 'fg accent-alt)
+   "keyword.control.repeat"   (hash 'fg accent-alt)
+   "keyword.control.import"   (hash 'fg accent-alt)
+   "keyword.control.return"   (hash 'fg accent-alt)
+   "keyword.control.exception" (hash 'fg red)
+   "keyword.operator"         (hash 'fg accent-alt)
+   "keyword.directive"        (hash 'fg accent-dim)
+   "keyword.function"         (hash 'fg accent)
+   "keyword.storage"          (hash 'fg accent-alt)
+   "keyword.storage.type"     (hash 'fg accent-alt)
+   "keyword.storage.modifier" (hash 'fg accent-alt)
+
+   ;; ── Syntax: functions ──
+   "function"              (hash 'fg accent)
+   "function.builtin"      (hash 'fg accent)
+   "function.method"       (hash 'fg accent)
+   "function.method.private" (hash 'fg accent)
+   "function.macro"        (hash 'fg accent-alt)
+   "function.special"      (hash 'fg accent-dim)
+
+   ;; ── Syntax: types ──
+   "type"             (hash 'fg teal)
+   "type.builtin"     (hash 'fg teal)
+   "type.parameter"   (hash 'fg teal)
+   "type.enum"        (hash 'fg teal)
+   "type.enum.variant" (hash 'fg accent)
+
+   ;; ── Syntax: variables ──
+   "variable"                 (hash 'fg fg)
+   "variable.builtin"         (hash 'fg fg)
+   "variable.parameter"       (hash 'fg fg)
+   "variable.other"           (hash 'fg fg)
+   "variable.other.member"    (hash 'fg fg)
+   "variable.other.member.private" (hash 'fg fg)
+
+   ;; ── Syntax: constants / strings ──
+   "constant"               (hash 'fg fg)
+   "constant.builtin"       (hash 'fg purple)
+   "constant.builtin.boolean" (hash 'fg purple)
+   "constant.character"     (hash 'fg green)
+   "constant.character.escape" (hash 'fg yellow)
+   "constant.numeric"       (hash 'fg purple)
+   "constant.numeric.integer" (hash 'fg purple)
+   "constant.numeric.float" (hash 'fg purple)
+   "string"                 (hash 'fg green)
+   "string.regexp"          (hash 'fg yellow)
+   "string.special"         (hash 'fg green)
+   "string.special.path"    (hash 'fg green)
+   "string.special.url"     (hash 'fg accent)
+   "string.special.symbol"  (hash 'fg green)
+
+   ;; ── Syntax: constructor / namespace ──
+   "constructor" (hash 'fg accent)
+   "namespace"   (hash 'fg teal)
+
+   ;; ── Syntax: punctuation ──
+   "punctuation"         (hash 'fg fg-bright)
+   "punctuation.delimiter" (hash 'fg fg-bright)
+   "punctuation.bracket" (hash 'fg fg-bright)
+   "punctuation.special" (hash 'fg accent-alt)
+
+   ;; ── Syntax: operators ──
+   "operator" (hash 'fg accent-alt)
+
+   ;; ── Syntax: tags ──
+   "tag"         (hash 'fg accent-alt)
+   "tag.builtin" (hash 'fg accent-alt)
+
+   ;; ── Syntax: labels / attributes / special ──
+   "label"     (hash 'fg orange)
+   "attribute" (hash 'fg fg)
+   "special"   (hash 'fg accent-dim)
+
+   ;; ── Markup ──
+   "markup"                (hash 'fg fg)
+   "markup.heading"        (hash 'fg accent)
+   "markup.heading.marker" (hash 'fg accent)
+   "markup.list"           (hash 'fg teal)
+   "markup.list.unnumbered" (hash 'fg teal)
+   "markup.list.numbered"  (hash 'fg orange)
+   "markup.list.checked"   (hash 'fg green)
+   "markup.list.unchecked" (hash 'fg fg-dim)
+   "markup.bold"           (hash 'fg fg-bright)
+   "markup.italic"         (hash 'fg fg)
+   "markup.strikethrough"  (hash 'fg fg-dim)
+   "markup.link"           (hash 'fg accent)
+   "markup.link.url"       (hash 'fg accent)
+   "markup.link.label"     (hash 'fg accent-alt)
+   "markup.link.text"      (hash 'fg fg)
+   "markup.quote"          (hash 'fg fg-dim)
+   "markup.raw"            (hash 'fg green)
+   "markup.raw.inline"     (hash 'fg green)
+   "markup.raw.block"      (hash 'fg green)
+
+   ;; ── Markup: completion / hover ──
+   "markup.normal.completion"    (hash 'fg fg)
+   "markup.normal.hover"         (hash 'fg fg)
+   "markup.heading.completion"   (hash 'fg accent)
+   "markup.heading.hover"        (hash 'fg accent)
+   "markup.raw.inline.completion" (hash 'fg green)
+   "markup.raw.inline.hover"     (hash 'fg green)
+
+   ;; ── Diff ──
+   "diff"              (hash 'fg fg)
+   "diff.plus"         (hash 'fg green)
+   "diff.plus.gutter"  (hash 'fg green)
+   "diff.minus"        (hash 'fg red)
+   "diff.minus.gutter" (hash 'fg red)
+   "diff.delta"        (hash 'fg yellow)
+   "diff.delta.moved"  (hash 'fg accent)
+   "diff.delta.conflict" (hash 'fg red)
+   "diff.delta.gutter" (hash 'fg yellow)))
+
+(define woz-transparent (theme.hashmap->theme "woz-transparent" woz-transparent-hash))
+
+;; ── Additional chained styles (italic, bold) ──────────────
+(~> woz-transparent
+    (theme.comment          (fg+italic fg-dim))
+    (theme.keyword          (fg+bold accent-alt))
+    (theme.keyword.control  (fg+bold accent-alt))
+    (theme.function.builtin (fg+italic accent))
+    (theme.markup.bold      (fg+bold fg-bright))
+    (theme.markup.italic    (fg+italic fg))
+    (theme.markup.heading   (fg+bold accent)))
+
 (theme.register-theme woz-transparent)
