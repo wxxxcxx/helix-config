@@ -4,24 +4,22 @@
 (require (prefix-in helix.keymaps. "helix/keymaps.scm"))
 
 (require (only-in "smith.hx/smith.scm"
-                  smith-ensure
-                  smith-configure!
-                  smith-init
-                  smith-apply-bindings!))
+                  smith-plugin
+                  smith-prune
+                  smith-init))
 
-;; forest.hx: file tree explorer
-;; https://github.com/Ra77a3l3-jar/forest.hx
-;;
-;; Ensure it's installed
-(smith-ensure "https://github.com/Ra77a3l3-jar/forest.hx.git")
+(smith-plugin "https://github.com/Ra77a3l3-jar/forest.hx.git"
+  (config
+   ;; Use 'right instead of 'left to move the sidebar.
+   (forest-configure! 'left #:ignore (list ".git" "target" "__pycache__"))
 
-;; Load and configure
-(require "forest/forest.scm")
-(forest-configure! 'left #:ignore (list ".git" "target" "__pycache__"))
-(forest-set-style! 'snacks)
+   ;; Select 'snacks (persistent sidebar) or 'mini (floating).
+   (forest-set-style! 'snacks))
 
-;; Apply bindings
-(smith-apply-bindings! '(("normal" ("space" "e") ":forest-open")))
+  ;; Open or focus forest.hx with Space e in normal mode. Bindings are data,
+  ;; so the keymap macro does not cross Smith's delayed evaluation boundary.
+  (bind
+   ("normal" ("space" "e") ":forest-open")))
 
-;; Synchronize plugin declarations: install missing, prune removed
+;; Synchronize after every smith-plugin declaration has been evaluated.
 (smith-init)
