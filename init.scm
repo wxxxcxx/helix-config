@@ -9,7 +9,7 @@
                   smith-init))
 
 ;; Load and activate Woz Transparent theme
-(require "woz-transparent.scm")
+(require "themes/woz-transparent.scm")
 (helix.theme "woz-transparent")
 
 (smith-plugin "https://github.com/Ra77a3l3-jar/forest.hx.git"

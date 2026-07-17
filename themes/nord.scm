@@ -1,35 +1,48 @@
-;; Woz Transparent — woz theme with transparent background
-;; Nord palette with all UI backgrounds removed so your terminal
-;; background/gradient shows through.
+;; nord — shared Nord palette and syntax colors
+;; Both woz and woz-transparent inherit from this.
 ;;
-;;   nord0  #2E3440    nord4  #D8DEE9    nord7  #8FBCBB   nord11 #BF616A
-;;   nord1  #3B4252    nord5  #E5E9F0    nord8  #88C0D0   nord12 #D08770
-;;   nord2  #434C5E    nord6  #ECEFF4    nord9  #81A1C1   nord13 #EBCB8B
-;;   nord3  #4C566A                         nord10 #5E81AC   nord14 #A3BE8C
-;;                                                           nord15 #B48EAD
+;;   nord0  #2E3440  bg          background
+;;   nord1  #3B4252  bg-alt      panels, statusline, gutter
+;;   nord2  #434C5E  bg-hl       selection, cursorline
+;;   nord3  #4C566A  fg-dim      comments, invisibles, guides
+;;   nord4  #D8DEE9  fg          variables, constants, attributes
+;;   nord5  #E5E9F0  —           (unused)
+;;   nord6  #ECEFF4  fg-bright   plain text, brackets
+;;   nord7  #8FBCBB  teal        types, classes, primitives
+;;   nord8  #88C0D0  accent      functions, methods
+;;   nord9  #81A1C1  accent-alt  keywords, operators, tags
+;;   nord10 #5E81AC  accent-dim  preprocessor, pragmas
+;;   nord11 #BF616A  red         errors, diff deletions
+;;   nord12 #D08770  orange      annotations, decorators, numbers
+;;   nord13 #EBCB8B  yellow      warnings, escape chars, regex
+;;   nord14 #A3BE8C  green       strings, diff additions
+;;   nord15 #B48EAD  purple      numeric constants
 (require "helix/components.scm")
 (require (prefix-in theme. "helix/themes.scm"))
 
-;; ── Nord Palette ──────────────────────────────────────────
+;; ── Palette ───────────────────────────────────────────────
 (define bg          "#2E3440")  ; nord0
 (define bg-alt      "#3B4252")  ; nord1
 (define bg-hl       "#434C5E")  ; nord2
 (define fg          "#D8DEE9")  ; nord4
 (define fg-dim      "#4C566A")  ; nord3
 (define fg-bright   "#ECEFF4")  ; nord6
-(define accent      "#88C0D0")  ; nord8 — functions
-(define accent-alt  "#81A1C1")  ; nord9 — keywords
-(define accent-dim  "#5E81AC")  ; nord10 — preprocessor
-(define teal        "#8FBCBB")  ; nord7 — types
-(define green       "#A3BE8C")  ; nord14 — strings
-(define orange      "#D08770")  ; nord12 — annotations
-(define red         "#BF616A")  ; nord11 — errors
-(define purple      "#B48EAD")  ; nord15 — numbers
-(define yellow      "#EBCB8B")  ; nord13 — warnings
+(define accent      "#88C0D0")  ; nord8
+(define accent-alt  "#81A1C1")  ; nord9
+(define accent-dim  "#5E81AC")  ; nord10
+(define teal        "#8FBCBB")  ; nord7
+(define green       "#A3BE8C")  ; nord14
+(define orange      "#D08770")  ; nord12
+(define red         "#BF616A")  ; nord11
+(define purple      "#B48EAD")  ; nord15
+(define yellow      "#EBCB8B")  ; nord13
 
-;; ── Style helpers ─────────────────────────────────────────
-(define (mk-fg color)
+;; ── Helpers ───────────────────────────────────────────────
+(define (mk-style-fg color)
   (~> (style) (style-fg (theme.string->color color))))
+
+(define (mk-style-bg color)
+  (~> (style) (style-bg (theme.string->color color))))
 
 (define (fg+italic color)
   (~> (style)
@@ -41,60 +54,9 @@
       (style-fg (theme.string->color color))
       style-with-bold))
 
-;; Most scopes use the same colors as woz. For brevity, the hash
-;; only includes scopes whose value differs from a simple fg string.
-;; Everything else is set via the threaded chain below.
-(define woz-transparent-hash
+;; ── Shared syntax hash (identical across woz variants) ────
+(define nord-syntax-hash
   (hash
-
-   ;; ── Base (no background) ──
-   "ui.text" (hash 'fg fg)
-
-   ;; ── Selection (required by Helix) ──
-   "ui.selection"           (hash 'bg bg-hl)
-   "ui.selection.primary"   (hash 'bg bg-alt)
-
-   ;; ── Cursor ──
-   "ui.cursor"              (hash 'fg fg)
-   "ui.cursor.normal"       (hash 'fg fg)
-   "ui.cursor.insert"       (hash 'fg fg)
-   "ui.cursor.select"       (hash 'fg fg)
-   "ui.cursor.primary"      (hash 'fg fg-bright)
-   "ui.cursor.primary.normal" (hash 'fg fg-bright)
-   "ui.cursor.primary.select" (hash 'fg fg-bright)
-   "ui.cursor.match"        (hash 'fg accent)
-
-   ;; ── Line numbers ──
-   "ui.linenr"          (hash 'fg fg-dim)
-   "ui.linenr.selected" (hash 'fg fg)
-
-   ;; ── Text colors ──
-   "ui.text.focus"     (hash 'fg fg)
-   "ui.text.info"      (hash 'fg accent)
-   "ui.text.inactive"  (hash 'fg fg-dim)
-   "ui.text.directory" (hash 'fg accent-alt)
-
-   ;; ── Statusline mode colors (background only in normal woz) ──
-   "ui.statusline.normal"   (hash 'fg fg-bright)
-   "ui.statusline.insert"   (hash 'fg fg-bright)
-   "ui.statusline.select"   (hash 'fg fg-bright)
-   "ui.statusline.separator" (hash 'fg fg-dim)
-
-   ;; ── Virtual / Whitespace ──
-   "ui.virtual.whitespace"     (hash 'fg fg-dim)
-   "ui.virtual.indent-guide"   (hash 'fg fg-dim)
-   "ui.virtual.inlay-hint"     (hash 'fg fg-dim)
-   "ui.virtual.inlay-hint.parameter" (hash 'fg fg-dim)
-   "ui.virtual.inlay-hint.type"     (hash 'fg accent-dim)
-   "ui.virtual.wrap"           (hash 'fg fg-dim)
-   "ui.virtual.jump-label"     (hash 'fg accent)
-   "ui.virtual.ruler"          (hash 'fg fg-dim)
-
-   ;; ── Window border ──
-   "ui.window" (hash 'fg fg-dim)
-
-   ;; ── Menu scrollbar ──
-   "ui.menu.scroll" (hash 'fg fg-dim)
 
    ;; ── Diagnostics ──
    "error"      (hash 'fg red)
@@ -230,16 +192,9 @@
    "diff.delta.conflict" (hash 'fg red)
    "diff.delta.gutter" (hash 'fg yellow)))
 
-(define woz-transparent (theme.hashmap->theme "woz-transparent" woz-transparent-hash))
-
-;; ── Additional chained styles (italic, bold) ──────────────
-(~> woz-transparent
-    (theme.comment          (fg+italic fg-dim))
-    (theme.keyword          (fg+bold accent-alt))
-    (theme.keyword.control  (fg+bold accent-alt))
-    (theme.function.builtin (fg+italic accent))
-    (theme.markup.bold      (fg+bold fg-bright))
-    (theme.markup.italic    (fg+italic fg))
-    (theme.markup.heading   (fg+bold accent)))
-
-(theme.register-theme woz-transparent)
+(provide bg bg-alt bg-hl
+         fg fg-dim fg-bright
+         accent accent-alt accent-dim
+         teal green orange red purple yellow
+         mk-style-fg mk-style-bg fg+italic fg+bold
+         nord-syntax-hash)
