@@ -1,237 +1,272 @@
 ;; Nord theme for Helix
 ;; Based on the Nord color palette: https://www.nordtheme.com
-;;
-;; Colors:
-;;   nord0  #2E3440  polar night (base background)
-;;   nord1  #3B4252  darker UI
-;;   nord2  #434C5E  selection, gutter
-;;   nord3  #4C566A  comments, invisibles
-;;   nord4  #D8DEE9  default text
-;;   nord5  #E5E9F0  lighter
-;;   nord6  #ECEFF4  lightest
-;;   nord7  #8FBCBB  teal          strings, constants
-;;   nord8  #88C0D0  light blue    keywords, variables
-;;   nord9  #81A1C1  medium blue   functions, methods
-;;   nord10 #5E81AC  dark blue     types, namespaces
-;;   nord11 #BF616A  red           errors, warnings
-;;   nord12 #D08770  orange        numbers
-;;   nord13 #EBCB8B  yellow        attributes, markup
-;;   nord14 #A3BE8C  green         strings, diff added
-;;   nord15 #B48EAD  purple        special, preprocessor
-(require "helix/themes.scm")
+(require "helix/components.scm")
+(require (prefix-in theme. "helix/themes.scm"))
 
-(define nord-theme
-  (~> (hash)
+;; ── Palette ───────────────────────────────────────────────
+;; Polar Night
+(define nord0 "#2E3440")   ; darkest background
+(define nord1 "#3B4252")   ; darker UI
+(define nord2 "#434C5E")   ; selection, gutter
+(define nord3 "#4C566A")   ; comments, invisibles
+;; Snow Storm
+(define nord4 "#D8DEE9")   ; default text
+(define nord5 "#E5E9F0")   ; lighter
+(define nord6 "#ECEFF4")   ; lightest
+;; Frost
+(define nord7 "#8FBCBB")   ; teal
+(define nord8 "#88C0D0")   ; light blue
+(define nord9 "#81A1C1")   ; medium blue
+(define nord10 "#5E81AC")  ; dark blue
+;; Aurora
+(define nord11 "#BF616A")  ; red
+(define nord12 "#D08770")  ; orange
+(define nord13 "#EBCB8B")  ; yellow
+(define nord14 "#A3BE8C")  ; green
+(define nord15 "#B48EAD")  ; purple
 
-      ;; ── Base ────────────────────────────────────────────
-      (ui.background "#2E3440")
-      (ui.text "#D8DEE9")
+;; ── Helpers ───────────────────────────────────────────────
+(define (fg color)
+  (~> (style) (style-fg (theme.string->color color))))
 
-      ;; ── Cursor / Selection ──────────────────────────────
-      (ui.cursor "#D8DEE9")
-      (ui.cursor.normal "#D8DEE9")
-      (ui.cursor.insert "#D8DEE9")
-      (ui.cursor.select "#D8DEE9")
-      (ui.cursor.primary "#ECEFF4")
-      (ui.cursor.primary.normal "#ECEFF4")
-      (ui.cursor.primary.select "#ECEFF4")
-      (ui.cursor.match "#88C0D0")
-      (ui.selection "#434C5E")
-      (ui.selection.primary "#3B4252")
+(define (fg+bg fg-color bg-color)
+  (~> (style)
+      (style-fg (theme.string->color fg-color))
+      (style-bg (theme.string->color bg-color))))
 
-      ;; ── Line numbers / Gutter ───────────────────────────
-      (ui.linenr "#4C566A")
-      (ui.linenr.selected "#D8DEE9")
-      (ui.gutter "#2E3440")
-      (ui.gutter.selected "#3B4252")
+(define (fg+italic color)
+  (~> (style)
+      (style-fg (theme.string->color color))
+      style-with-italics))
 
-      ;; ── Cursor line / column ────────────────────────────
-      (ui.cursorline "#3B4252")
-      (ui.cursorline.primary "#3B4252")
-      (ui.cursorline.secondary "#3B4252")
+(define (fg+bold color)
+  (~> (style)
+      (style-fg (theme.string->color color))
+      style-with-bold))
 
-      ;; ── UI Elements ─────────────────────────────────────
-      (ui.statusline "#3B4252")
-      (ui.statusline.inactive "#2E3440")
-      (ui.statusline.normal "#5E81AC")
-      (ui.statusline.insert "#81A1C1")
-      (ui.statusline.select "#B48EAD")
-      (ui.statusline.separator "#4C566A")
-      (ui.bufferline "#3B4252")
-      (ui.bufferline.active "#4C566A")
-      (ui.bufferline.background "#2E3440")
-      (ui.window "#4C566A")
-      (ui.popup "#3B4252")
-      (ui.popup.info "#3B4252")
-      (ui.help "#3B4252")
-      (ui.text.focus "#D8DEE9")
-      (ui.text.info "#88C0D0")
-      (ui.text.inactive "#4C566A")
-      (ui.text.directory "#81A1C1")
+;; ── Build initial theme from hash ─────────────────────────
+(define nord-hash
+  (hash
 
-      ;; ── Virtual / Whitespace ────────────────────────────
-      (ui.virtual.whitespace "#4C566A")
-      (ui.virtual.indent-guide "#3B4252")
-      (ui.virtual.ruler "#3B4252")
-      (ui.virtual.inlay-hint "#4C566A")
-      (ui.virtual.inlay-hint.parameter "#4C566A")
-      (ui.virtual.inlay-hint.type "#5E81AC")
-      (ui.virtual.wrap "#4C566A")
-      (ui.virtual.jump-label "#A3BE8C")
+   ;; ── Base ──
+   "ui.background" (hash 'bg nord0)
+   "ui.text"       (hash 'fg nord4)
 
-      ;; ── Menus / Completion ──────────────────────────────
-      (ui.menu "#3B4252")
-      (ui.menu.selected "#434C5E")
-      (ui.menu.scroll "#4C566A")
+   ;; ── Cursor / Selection ──
+   "ui.cursor"              (hash 'fg nord4)
+   "ui.cursor.normal"       (hash 'fg nord4)
+   "ui.cursor.insert"       (hash 'fg nord4)
+   "ui.cursor.select"       (hash 'fg nord4)
+   "ui.cursor.primary"      (hash 'fg nord6)
+   "ui.cursor.primary.normal" (hash 'fg nord6)
+   "ui.cursor.primary.select" (hash 'fg nord6)
+   "ui.cursor.match"        (hash 'fg nord8)
+   "ui.selection"           (hash 'bg nord2)
+   "ui.selection.primary"   (hash 'bg nord1)
 
-      ;; ── Diagnostics ─────────────────────────────────────
-      (error "#BF616A")
-      (warning "#D08770")
-      (info "#88C0D0")
-      (hint "#4C566A")
-      (diagnostic.error "#BF616A")
-      (diagnostic.warning "#D08770")
-      (diagnostic.info "#88C0D0")
-      (diagnostic.hint "#4C566A")
-      (diagnostic.unnecessary "#4C566A")
-      (diagnostic.deprecated "#4C566A")
+   ;; ── Line numbers / Gutter ──
+   "ui.linenr"          (hash 'fg nord3)
+   "ui.linenr.selected" (hash 'fg nord4)
+   "ui.gutter"          (hash 'bg nord0)
+   "ui.gutter.selected" (hash 'bg nord1)
 
-      ;; ── Debug ───────────────────────────────────────────
-      (ui.debug.breakpoint "#BF616A")
-      (ui.debug.active "#A3BE8C")
-      (ui.highlight.frameline "#3B4252")
+   ;; ── Cursor line ──
+   "ui.cursorline"         (hash 'bg nord1)
+   "ui.cursorline.primary" (hash 'bg nord1)
 
-      ;; ── Highlight / Picker ──────────────────────────────
-      (ui.highlight "#3B4252")
-      (ui.background.separator "#3B4252")
+   ;; ── UI Elements ──
+   "ui.statusline"            (hash 'bg nord1)
+   "ui.statusline.inactive"   (hash 'bg nord0)
+   "ui.statusline.normal"     (hash 'bg nord10)
+   "ui.statusline.insert"     (hash 'bg nord9)
+   "ui.statusline.select"     (hash 'bg nord15)
+   "ui.statusline.separator"  (hash 'fg nord3)
+   "ui.bufferline"            (hash 'bg nord1)
+   "ui.bufferline.active"     (hash 'bg nord2 'fg nord4)
+   "ui.bufferline.background" (hash 'bg nord0)
+   "ui.window"                (hash 'fg nord3)
+   "ui.popup"                 (hash 'bg nord1)
+   "ui.popup.info"            (hash 'bg nord1)
+   "ui.help"                  (hash 'bg nord1)
+   "ui.text.focus"            (hash 'fg nord4)
+   "ui.text.info"             (hash 'fg nord8)
+   "ui.text.inactive"         (hash 'fg nord3)
+   "ui.text.directory"        (hash 'fg nord9)
 
-      ;; ── Syntax: Comments ────────────────────────────────
-      (comment "#4C566A")
-      (comment.line "#4C566A")
-      (comment.block "#4C566A")
-      (comment.block.documentation "#4C566A")
+   ;; ── Virtual / Whitespace ──
+   "ui.virtual.whitespace"     (hash 'fg nord3)
+   "ui.virtual.indent-guide"   (hash 'fg nord1)
+   "ui.virtual.ruler"          (hash 'fg nord1)
+   "ui.virtual.inlay-hint"     (hash 'fg nord3)
+   "ui.virtual.inlay-hint.parameter" (hash 'fg nord3)
+   "ui.virtual.inlay-hint.type"     (hash 'fg nord10)
+   "ui.virtual.wrap"           (hash 'fg nord3)
+   "ui.virtual.jump-label"     (hash 'fg nord14)
 
-      ;; ── Syntax: Keywords ────────────────────────────────
-      (keyword "#8FBCBB")
-      (keyword.control "#8FBCBB")
-      (keyword.control.conditional "#8FBCBB")
-      (keyword.control.repeat "#8FBCBB")
-      (keyword.control.import "#8FBCBB")
-      (keyword.control.return "#8FBCBB")
-      (keyword.control.exception "#BF616A")
-      (keyword.operator "#8FBCBB")
-      (keyword.directive "#B48EAD")
-      (keyword.function "#88C0D0")
-      (keyword.storage "#8FBCBB")
-      (keyword.storage.type "#8FBCBB")
-      (keyword.storage.modifier "#8FBCBB")
+   ;; ── Menus / Completion ──
+   "ui.menu"         (hash 'bg nord1)
+   "ui.menu.selected" (hash 'bg nord2)
+   "ui.menu.scroll"  (hash 'fg nord3)
 
-      ;; ── Syntax: Functions ───────────────────────────────
-      (function "#81A1C1")
-      (function.builtin "#88C0D0")
-      (function.method "#81A1C1")
-      (function.method.private "#81A1C1")
-      (function.macro "#B48EAD")
-      (function.special "#B48EAD")
+   ;; ── Diagnostics ──
+   "error"      (hash 'fg nord11)
+   "warning"    (hash 'fg nord12)
+   "info"       (hash 'fg nord8)
+   "hint"       (hash 'fg nord3)
+   "diagnostic.error"        (hash 'fg nord11)
+   "diagnostic.warning"      (hash 'fg nord12)
+   "diagnostic.info"         (hash 'fg nord8)
+   "diagnostic.hint"         (hash 'fg nord3)
+   "diagnostic.unnecessary"  (hash 'fg nord3)
+   "diagnostic.deprecated"   (hash 'fg nord3)
 
-      ;; ── Syntax: Types ───────────────────────────────────
-      (type "#5E81AC")
-      (type.builtin "#5E81AC")
-      (type.parameter "#D8DEE9")
-      (type.enum "#5E81AC")
-      (type.enum.variant "#81A1C1")
+   ;; ── Debug ──
+   "ui.debug.breakpoint"  (hash 'fg nord11)
+   "ui.debug.active"      (hash 'fg nord14)
 
-      ;; ── Syntax: Variables ───────────────────────────────
-      (variable "#D8DEE9")
-      (variable.builtin "#88C0D0")
-      (variable.parameter "#D8DEE9")
-      (variable.other "#D8DEE9")
-      (variable.other.member "#D8DEE9")
-      (variable.other.member.private "#D8DEE9")
+   ;; ── Highlight / Picker ──
+   "ui.highlight"           (hash 'bg nord1)
+   "ui.background.separator" (hash 'bg nord1)
 
-      ;; ── Syntax: Constants / Strings ─────────────────────
-      (constant "#8FBCBB")
-      (constant.builtin "#8FBCBB")
-      (constant.builtin.boolean "#8FBCBB")
-      (constant.character "#A3BE8C")
-      (constant.character.escape "#8FBCBB")
-      (constant.numeric "#D08770")
-      (constant.numeric.integer "#D08770")
-      (constant.numeric.float "#D08770")
-      (string "#A3BE8C")
-      (string.regexp "#8FBCBB")
-      (string.special "#8FBCBB")
-      (string.special.path "#A3BE8C")
-      (string.special.url "#81A1C1")
-      (string.special.symbol "#8FBCBB")
+   ;; ── Syntax: Comments ──
+   "comment"                    (hash 'fg nord3)
+   "comment.line"               (hash 'fg nord3)
+   "comment.block"              (hash 'fg nord3)
+   "comment.block.documentation" (hash 'fg nord3)
 
-      ;; ── Syntax: Constructor / Namespace ─────────────────
-      (constructor "#81A1C1")
-      (namespace "#5E81AC")
+   ;; ── Syntax: Keywords ──
+   "keyword"                  (hash 'fg nord7)
+   "keyword.control"          (hash 'fg nord7)
+   "keyword.control.conditional" (hash 'fg nord7)
+   "keyword.control.repeat"   (hash 'fg nord7)
+   "keyword.control.import"   (hash 'fg nord7)
+   "keyword.control.return"   (hash 'fg nord7)
+   "keyword.control.exception" (hash 'fg nord11)
+   "keyword.operator"         (hash 'fg nord7)
+   "keyword.directive"        (hash 'fg nord15)
+   "keyword.function"         (hash 'fg nord8)
+   "keyword.storage"          (hash 'fg nord7)
+   "keyword.storage.type"     (hash 'fg nord7)
+   "keyword.storage.modifier" (hash 'fg nord7)
 
-      ;; ── Syntax: Punctuation ─────────────────────────────
-      (punctuation "#D8DEE9")
-      (punctuation.delimiter "#D8DEE9")
-      (punctuation.bracket "#D8DEE9")
-      (punctuation.special "#8FBCBB")
+   ;; ── Syntax: Functions ──
+   "function"              (hash 'fg nord9)
+   "function.builtin"      (hash 'fg nord8)
+   "function.method"       (hash 'fg nord9)
+   "function.method.private" (hash 'fg nord9)
+   "function.macro"        (hash 'fg nord15)
+   "function.special"      (hash 'fg nord15)
 
-      ;; ── Syntax: Operators ───────────────────────────────
-      (operator "#8FBCBB")
+   ;; ── Syntax: Types ──
+   "type"             (hash 'fg nord10)
+   "type.builtin"     (hash 'fg nord10)
+   "type.parameter"   (hash 'fg nord4)
+   "type.enum"        (hash 'fg nord10)
+   "type.enum.variant" (hash 'fg nord9)
 
-      ;; ── Syntax: Tags ────────────────────────────────────
-      (tag "#81A1C1")
-      (tag.builtin "#81A1C1")
+   ;; ── Syntax: Variables ──
+   "variable"                 (hash 'fg nord4)
+   "variable.builtin"         (hash 'fg nord8)
+   "variable.parameter"       (hash 'fg nord4)
+   "variable.other"           (hash 'fg nord4)
+   "variable.other.member"    (hash 'fg nord4)
+   "variable.other.member.private" (hash 'fg nord4)
 
-      ;; ── Syntax: Labels / Attributes / Special ───────────
-      (label "#D08770")
-      (attribute "#EBCB8B")
-      (special "#B48EAD")
+   ;; ── Syntax: Constants / Strings ──
+   "constant"               (hash 'fg nord7)
+   "constant.builtin"       (hash 'fg nord7)
+   "constant.builtin.boolean" (hash 'fg nord7)
+   "constant.character"     (hash 'fg nord14)
+   "constant.character.escape" (hash 'fg nord7)
+   "constant.numeric"       (hash 'fg nord12)
+   "constant.numeric.integer" (hash 'fg nord12)
+   "constant.numeric.float" (hash 'fg nord12)
+   "string"                 (hash 'fg nord14)
+   "string.regexp"          (hash 'fg nord7)
+   "string.special"         (hash 'fg nord7)
+   "string.special.path"    (hash 'fg nord14)
+   "string.special.url"     (hash 'fg nord9)
+   "string.special.symbol"  (hash 'fg nord7)
 
-      ;; ── Markup ──────────────────────────────────────────
-      (markup "#D8DEE9")
-      (markup.heading "#88C0D0")
-      (markup.heading.marker "#88C0D0")
-      (markup.heading.marker.1 "#BF616A")
-      (markup.heading.marker.2 "#D08770")
-      (markup.heading.marker.3 "#EBCB8B")
-      (markup.heading.marker.4 "#A3BE8C")
-      (markup.heading.marker.5 "#81A1C1")
-      (markup.heading.marker.6 "#B48EAD")
-      (markup.list "#8FBCBB")
-      (markup.list.unnumbered "#8FBCBB")
-      (markup.list.numbered "#D08770")
-      (markup.list.checked "#A3BE8C")
-      (markup.list.unchecked "#4C566A")
-      (markup.bold "#ECEFF4")
-      (markup.italic "#D8DEE9")
-      (markup.strikethrough "#4C566A")
-      (markup.link "#81A1C1")
-      (markup.link.url "#81A1C1")
-      (markup.link.label "#88C0D0")
-      (markup.link.text "#D8DEE9")
-      (markup.quote "#8FBCBB")
-      (markup.raw "#A3BE8C")
-      (markup.raw.inline "#A3BE8C")
-      (markup.raw.block "#A3BE8C")
+   ;; ── Syntax: Constructor / Namespace ──
+   "constructor" (hash 'fg nord9)
+   "namespace"   (hash 'fg nord10)
 
-      ;; ── Markup: Completion / Hover ──────────────────────
-      (markup.normal.completion "#D8DEE9")
-      (markup.normal.hover "#D8DEE9")
-      (markup.heading.completion "#88C0D0")
-      (markup.heading.hover "#88C0D0")
-      (markup.raw.inline.completion "#A3BE8C")
-      (markup.raw.inline.hover "#A3BE8C")
+   ;; ── Syntax: Punctuation ──
+   "punctuation"         (hash 'fg nord4)
+   "punctuation.delimiter" (hash 'fg nord4)
+   "punctuation.bracket" (hash 'fg nord4)
+   "punctuation.special" (hash 'fg nord7)
 
-      ;; ── Diff ────────────────────────────────────────────
-      (diff "#D8DEE9")
-      (diff.plus "#A3BE8C")
-      (diff.plus.gutter "#A3BE8C")
-      (diff.minus "#BF616A")
-      (diff.minus.gutter "#BF616A")
-      (diff.delta "#EBCB8B")
-      (diff.delta.moved "#81A1C1")
-      (diff.delta.conflict "#BF616A")
-      (diff.delta.gutter "#EBCB8B")))
+   ;; ── Syntax: Operators ──
+   "operator" (hash 'fg nord7)
 
-;; Register the theme
-(register-theme nord-theme)
+   ;; ── Syntax: Tags ──
+   "tag"         (hash 'fg nord9)
+   "tag.builtin" (hash 'fg nord9)
+
+   ;; ── Syntax: Labels / Attributes / Special ──
+   "label"     (hash 'fg nord12)
+   "attribute" (hash 'fg nord13)
+   "special"   (hash 'fg nord15)
+
+   ;; ── Markup ──
+   "markup"                (hash 'fg nord4)
+   "markup.heading"        (hash 'fg nord8)
+   "markup.heading.marker" (hash 'fg nord8)
+   "markup.list"           (hash 'fg nord7)
+   "markup.list.unnumbered" (hash 'fg nord7)
+   "markup.list.numbered"  (hash 'fg nord12)
+   "markup.list.checked"   (hash 'fg nord14)
+   "markup.list.unchecked" (hash 'fg nord3)
+   "markup.bold"           (hash 'fg nord6)
+   "markup.italic"         (hash 'fg nord4)
+   "markup.strikethrough"  (hash 'fg nord3)
+   "markup.link"           (hash 'fg nord9)
+   "markup.link.url"       (hash 'fg nord9)
+   "markup.link.label"     (hash 'fg nord8)
+   "markup.link.text"      (hash 'fg nord4)
+   "markup.quote"          (hash 'fg nord7)
+   "markup.raw"            (hash 'fg nord14)
+   "markup.raw.inline"     (hash 'fg nord14)
+   "markup.raw.block"      (hash 'fg nord14)
+
+   ;; ── Markup: Completion / Hover ──
+   "markup.normal.completion"    (hash 'fg nord4)
+   "markup.normal.hover"         (hash 'fg nord4)
+   "markup.heading.completion"   (hash 'fg nord8)
+   "markup.heading.hover"        (hash 'fg nord8)
+   "markup.raw.inline.completion" (hash 'fg nord14)
+   "markup.raw.inline.hover"     (hash 'fg nord14)
+
+   ;; ── Diff ──
+   "diff"              (hash 'fg nord4)
+   "diff.plus"         (hash 'fg nord14)
+   "diff.plus.gutter"  (hash 'fg nord14)
+   "diff.minus"        (hash 'fg nord11)
+   "diff.minus.gutter" (hash 'fg nord11)
+   "diff.delta"        (hash 'fg nord13)
+   "diff.delta.moved"  (hash 'fg nord9)
+   "diff.delta.conflict" (hash 'fg nord11)
+   "diff.delta.gutter" (hash 'fg nord13)))
+
+;; ── Create SteelTheme object ──────────────────────────────
+(define nord-theme (theme.hashmap->theme "nord" nord-hash))
+
+;; ── Additional chained styles (italic, bold, underline) ───
+(~> nord-theme
+    (theme.comment          (fg+italic nord3))
+    (theme.keyword          (fg+bold nord7))
+    (theme.keyword.control  (fg+bold nord7))
+    (theme.function.builtin (fg+italic nord8))
+    (theme.markup.bold      (fg+bold nord6))
+    (theme.markup.italic    (fg+italic nord4))
+    (theme.markup.heading.marker.1 (fg nord11))
+    (theme.markup.heading.marker.2 (fg nord12))
+    (theme.markup.heading.marker.3 (fg nord13))
+    (theme.markup.heading.marker.4 (fg nord14))
+    (theme.markup.heading.marker.5 (fg nord9))
+    (theme.markup.heading.marker.6 (fg nord15)))
+
+;; ── Register ──────────────────────────────────────────────
+(theme.register-theme nord-theme)
