@@ -2,10 +2,7 @@
 (require (prefix-in helix. "helix/commands.scm"))
 (require (prefix-in helix.static. "helix/static.scm"))
 
-(require (only-in "smith.hx/smith.scm"
-                  smith-plugin
-                  smith-prune
-                  smith-init))
+(require "smith.hx/smith.scm")
 ;; forest.hx: file tree explorer
 ;; https://github.com/Ra77a3l3-jar/forest.hx
 (smith-plugin "https://github.com/Ra77a3l3-jar/forest.hx.git"
