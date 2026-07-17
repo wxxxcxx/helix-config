@@ -50,6 +50,10 @@
    ;; ── Base (no background) ──
    "ui.text" (hash 'fg fg)
 
+   ;; ── Selection (required by Helix) ──
+   "ui.selection"           (hash 'bg bg-hl)
+   "ui.selection.primary"   (hash 'bg bg-alt)
+
    ;; ── Cursor ──
    "ui.cursor"              (hash 'fg fg)
    "ui.cursor.normal"       (hash 'fg fg)
