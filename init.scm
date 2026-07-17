@@ -8,8 +8,9 @@
                   smith-prune
                   smith-init))
 
-;; Load Nord theme
-(require "nord.scm")
+;; Load and activate Woz theme
+(require "woz.scm")
+(helix.theme "woz")
 
 (smith-plugin "https://github.com/Ra77a3l3-jar/forest.hx.git"
   (config
