@@ -1,7 +1,7 @@
 ;; Woz — standard theme with solid Nord backgrounds
 (require "helix/components.scm")
 (require (prefix-in theme. "helix/themes.scm"))
-(require "themes/nord.scm")
+(require "themes/base.scm")
 
 ;; ── UI hash (woz-specific: solid backgrounds) ─────────────
 (define woz-ui-hash

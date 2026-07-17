@@ -1,7 +1,7 @@
 ;; Woz Transparent — transparent-background variant of woz
 (require "helix/components.scm")
 (require (prefix-in theme. "helix/themes.scm"))
-(require "themes/nord.scm")
+(require "themes/base.scm")
 
 ;; ── UI hash (transparent: no backgrounds, fg-only) ────────
 (define woz-tp-ui-hash

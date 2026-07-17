@@ -1,5 +1,4 @@
-;; nord — shared Nord palette and syntax colors
-;; Both woz and woz-transparent inherit from this.
+;; base — shared palette and syntax colors for woz themes
 ;;
 ;;   nord0  #2E3440  bg          background
 ;;   nord1  #3B4252  bg-alt      panels, statusline, gutter
