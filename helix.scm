@@ -7,7 +7,6 @@
                   smith-init
                   smith-self-update
                   smith-ensure
-                  smith-plugin
                   smith-configure!
                   smith-lock
                   smith-restore
@@ -24,7 +23,6 @@
          smith-init
          smith-self-update
          smith-ensure
-         smith-plugin
          smith-configure!
          smith-lock
          smith-restore
