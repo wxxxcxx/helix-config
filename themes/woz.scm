@@ -241,13 +241,26 @@
 (define woz-theme (theme.hashmap->theme "woz" woz-hash))
 
 ;; ── Chained styles (italic, bold) ─────────────────────────
+;; Bold — structural / emphatic elements
 (~> woz-theme
-    (theme.comment          (fg+italic fg-dim))
-    (theme.keyword          (fg+bold accent-alt))
-    (theme.keyword.control  (fg+bold accent-alt))
-    (theme.function.builtin (fg+italic accent))
-    (theme.markup.bold      (fg+bold fg-bright))
-    (theme.markup.italic    (fg+italic fg))
-    (theme.markup.heading   (fg+bold accent)))
+    (theme.comment                (fg+italic fg-dim))
+    (theme.comment.block.documentation (fg+italic fg-dim))
+    (theme.keyword                (fg+bold accent-alt))
+    (theme.keyword.control        (fg+bold accent-alt))
+    (theme.keyword.storage.type   (fg+bold accent-alt))
+    (theme.keyword.storage.modifier (fg+bold accent-alt))
+    (theme.function.builtin       (fg+italic accent))
+    (theme.type.builtin           (fg+bold teal))
+    (theme.constant.builtin       (fg+bold purple))
+    (theme.variable.parameter     (fg+italic fg))
+    (theme.variable.builtin       (fg+italic accent))
+    (theme.type.parameter         (fg+italic teal))
+    (theme.string.regexp          (fg+italic yellow))
+    (theme.markup.bold            (fg+bold fg-bright))
+    (theme.markup.italic          (fg+italic fg))
+    (theme.markup.heading         (fg+bold accent))
+    (theme.markup.list.checked    (fg+bold green))
+    (theme.markup.link.url        (fg+italic accent))
+    (theme.markup.raw.inline      (fg+italic green)))
 
 (theme.register-theme woz-theme)

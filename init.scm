@@ -12,11 +12,32 @@
 ;; Relative line numbers
 (line-number 'relative)
 
+;; Indent guides
+(indent-guides (ig-render #t))
+
+;; Editor misc: bufferline, clipboard, yank, jump labels
+(bufferline "always")
+(soft-wrap (sw-enable #t))
+(set-option! 'clipboard-provider "pasteboard")
+(set-option! 'default-yank-register "+")
+(jump-label-alphabet "fjdkslarueiwoqpvncmxz")
+
 ;; Load and activate Woz theme
 (require "themes/woz.scm")
 (helix.theme "woz")
 
-;; moka.hx: statusline and bufferline
+;; ── Statusline ───────────────────────────────────────────────────
+;; Built-in statusline with SCM (version-control) info
+(statusline
+  #:left (list 'mode)
+  #:center (list 'file-name 'file-modification-indicator)
+  #:right (list 'diagnostics 'selections 'position 'file-indent-style
+                'position-percentage 'total-line-numbers 'version-control 'file-type)
+  #:mode-normal "◇ NORMAL"
+  #:mode-insert "▸ INSERT"
+  #:mode-select "◉ SELECT")
+
+;; moka.hx: statusline and bufferline (disabled in favor of built-in)
 ; (smith-plugin "https://github.com/Ra77a3l3-jar/moka.hx.git"
 ;   (config
 ;    (moka-configure!
