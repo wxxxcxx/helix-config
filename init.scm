@@ -58,3 +58,6 @@
 
 ;; Synchronize after every smith-plugin declaration has been evaluated.
 (smith-init)
+
+;; ── Input source switching ──────────────────────────────────────
+(require "im-switch-config.scm")

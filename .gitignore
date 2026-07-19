@@ -4,3 +4,7 @@
 
 # APM dependencies
 apm_modules/
+.agents/skills/
+.opencode/commands/
+apm.yml
+apm.lock.yaml
