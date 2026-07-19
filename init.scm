@@ -2,42 +2,46 @@
 (require (prefix-in helix. "helix/commands.scm"))
 (require (prefix-in helix.static. "helix/static.scm"))
 (require (prefix-in helix.keymaps. "helix/keymaps.scm"))
+(require "helix/configuration.scm")
 
 (require (only-in "smith.hx/smith.scm"
                   smith-plugin
                   smith-prune
                   smith-init))
 
-;; Load and activate Woz Transparent theme
-(require "themes/woz-transparent.scm")
-(helix.theme "woz-transparent")
+;; Relative line numbers
+(line-number 'relative)
+
+;; Load and activate Woz theme
+(require "themes/woz.scm")
+(helix.theme "woz")
 
 ;; moka.hx: statusline and bufferline
-(smith-plugin "https://github.com/Ra77a3l3-jar/moka.hx.git"
-  (config
-   (moka-configure!
-    #:sections
-    (list
-     ;; Left: mode + file
-     (moka-section
-      (list (moka-segment 'mode #:bg "#88C0D0" #:fg "#2E3440" #:bubble? #t #:gap 1)
-            (moka-segment 'file #:bg "#3B4252" #:fg "#D8DEE9" #:bubble? #f #:gap 0)
-            (moka-segment 'git-branch #:bg "#3B4252" #:fg "#81A1C1" #:bubble? #f))
-      #:align 'left)
+; (smith-plugin "https://github.com/Ra77a3l3-jar/moka.hx.git"
+;   (config
+;    (moka-configure!
+;     #:sections
+;     (list
+;      ;; Left: mode + file
+;      (moka-section
+;       (list (moka-segment 'mode #:bg "#88C0D0" #:fg "#2E3440" #:bubble? #t #:gap 1)
+;             (moka-segment 'file #:bg "#3B4252" #:fg "#D8DEE9" #:bubble? #f #:gap 0)
+;             (moka-segment 'git-branch #:bg "#3B4252" #:fg "#81A1C1" #:bubble? #f))
+;       #:align 'left)
 
-     ;; Right: LSP + position
-     (moka-section
-      (list (moka-segment 'lsp #:bg "#3B4252" #:fg "#D8DEE9" #:bubble? #f #:gap 0)
-            (moka-segment 'position #:bg "#5E81AC" #:fg "#ECEFF4" #:bubble? #t))
-      #:align 'right)))
+;      ;; Right: LSP + position
+;      (moka-section
+;       (list (moka-segment 'lsp #:bg "#3B4252" #:fg "#D8DEE9" #:bubble? #f #:gap 0)
+;             (moka-segment 'position #:bg "#5E81AC" #:fg "#ECEFF4" #:bubble? #t))
+;       #:align 'right)))
 
-   (moka-enable!)
+;    (moka-enable!)
 
-   (moka-bufferline-configure!
-    #:active (moka-buffer-style #:bg "#88C0D0" #:fg "#2E3440" #:bubble? #t)
-    #:inactive (moka-buffer-style #:bg "#3B4252" #:fg "#D8DEE9" #:bubble? #t)
-    #:gap 0)
-   (moka-bufferline-enable!)))
+;    (moka-bufferline-configure!
+;     #:active (moka-buffer-style #:bg "#88C0D0" #:fg "#2E3440" #:bubble? #t)
+;     #:inactive (moka-buffer-style #:bg "#3B4252" #:fg "#D8DEE9" #:bubble? #t)
+;     #:gap 0)
+;    (moka-bufferline-enable!)))
 
 (smith-plugin "https://github.com/Ra77a3l3-jar/forest.hx.git"
   (config
