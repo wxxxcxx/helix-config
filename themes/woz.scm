@@ -1,40 +1,25 @@
 ;; Woz — transparent-background theme (Nord palette)
 ;;
-;;   nord0  #2E3440  bg          background
-;;   nord1  #3B4252  bg-alt      panels, statusline, gutter
-;;   nord2  #434C5E  bg-hl       selection, cursorline
-;;   nord3  #4C566A  fg-dim      comments, invisibles, guides
-;;   nord4  #D8DEE9  fg          variables, constants, attributes
-;;   nord5  #E5E9F0  —           (unused)
-;;   nord6  #ECEFF4  fg-bright   plain text, brackets
-;;   nord7  #8FBCBB  teal        types, classes, primitives
-;;   nord8  #88C0D0  accent      functions, methods
-;;   nord9  #81A1C1  accent-alt  keywords, operators, tags
-;;   nord10 #5E81AC  accent-dim  preprocessor, pragmas
-;;   nord11 #BF616A  red         errors, diff deletions
-;;   nord12 #D08770  orange      annotations, decorators, numbers
-;;   nord13 #EBCB8B  yellow      warnings, escape chars, regex
-;;   nord14 #A3BE8C  green       strings, diff additions
-;;   nord15 #B48EAD  purple      numeric constants
+
 (require "helix/components.scm")
 (require (prefix-in theme. "helix/themes.scm"))
 
 ;; ── Palette ───────────────────────────────────────────────
-(define bg          "#2E3440")  ; nord0
-(define bg-alt      "#3B4252")  ; nord1
-(define bg-hl       "#434C5E")  ; nord2
-(define fg          "#D8DEE9")  ; nord4
-(define fg-dim      "#4C566A")  ; nord3
-(define fg-bright   "#ECEFF4")  ; nord6
-(define accent      "#88C0D0")  ; nord8
-(define accent-alt  "#81A1C1")  ; nord9
-(define accent-dim  "#5E81AC")  ; nord10
-(define teal        "#8FBCBB")  ; nord7
-(define green       "#A3BE8C")  ; nord14
-(define orange      "#D08770")  ; nord12
-(define red         "#BF616A")  ; nord11
-(define purple      "#B48EAD")  ; nord15
-(define yellow      "#EBCB8B")  ; nord13
+(define bg          "#2E3440")
+(define bg-alt      "#464f62")
+(define bg-hl       "#546075")
+(define fg          "#D8DEE9")
+(define fg-dim      "#4C566A")
+(define fg-bright   "#ECEFF4")
+(define accent      "#88C0D0")
+(define accent-alt  "#81A1C1")
+(define accent-dim  "#5E81AC")
+(define teal        "#8FBCBB")
+(define green       "#A3BE8C")
+(define orange      "#D08770")
+(define red         "#BF616A")
+(define purple      "#B48EAD")
+(define yellow      "#EBCB8B")
 
 ;; ── Helpers ───────────────────────────────────────────────
 (define (mk-style-fg color)
@@ -191,35 +176,51 @@
    "diff.delta.conflict" (hash 'fg red)
    "diff.delta.gutter" (hash 'fg yellow)))
 
-;; ── UI hash (transparent: no backgrounds, fg-only) ────────
+;; ── UI hash (transparent backgrounds, opaque cursor/select) ──
 (define woz-ui-hash
   (hash
+   ;; Root — no bg = transparent
+   "ui.background" (hash 'fg fg)
+
    "ui.text"  (hash 'fg fg)
-
-   "ui.cursor"              (hash 'fg fg)
-   "ui.cursor.normal"       (hash 'fg fg)
-   "ui.cursor.insert"       (hash 'fg fg)
-   "ui.cursor.select"       (hash 'fg fg)
-   "ui.cursor.primary"      (hash 'fg fg-bright)
-   "ui.cursor.primary.normal" (hash 'fg fg-bright)
-   "ui.cursor.primary.select" (hash 'fg fg-bright)
-   "ui.cursor.match"        (hash 'fg accent)
-   "ui.selection"           (hash 'bg bg-hl)
-   "ui.selection.primary"   (hash 'bg bg-alt)
-
-   "ui.linenr"          (hash 'fg fg-dim)
-   "ui.linenr.selected" (hash 'fg fg)
-
-   "ui.statusline.normal"   (hash 'fg fg-bright)
-   "ui.statusline.insert"   (hash 'fg fg-bright)
-   "ui.statusline.select"   (hash 'fg fg-bright)
-   "ui.statusline.separator" (hash 'fg fg-dim)
-
    "ui.text.focus"     (hash 'fg fg)
    "ui.text.info"      (hash 'fg accent)
    "ui.text.inactive"  (hash 'fg fg-dim)
    "ui.text.directory" (hash 'fg accent-alt)
 
+   ;; ── Mode: Normal (accent tones) ──
+    "ui.cursor.normal"          (hash 'fg fg       'bg accent-dim)
+    "ui.cursor.primary.normal"  (hash 'fg fg-bright 'bg accent)
+    "ui.statusline.normal"      (hash 'fg accent)
+    "ui.mode.normal"            (hash 'fg accent)
+
+   ;; ── Mode: Insert (purple tones) ──
+    "ui.cursor.insert"          (hash 'fg fg       'bg purple)
+    "ui.cursor.primary.insert"  (hash 'fg fg-bright 'bg purple)
+    "ui.statusline.insert"      (hash 'fg purple)
+
+   ;; ── Mode: Select (green tones) ──
+    "ui.cursor.select"          (hash 'fg fg       'bg green)
+    "ui.cursor.primary.select"  (hash 'fg fg-bright 'bg accent)
+    "ui.statusline.select"      (hash 'fg green)
+
+   ;; Cursor — fallback / generic
+    "ui.cursor"              (hash 'fg fg       'bg accent-dim)
+    "ui.cursor.primary"      (hash 'fg fg-bright 'bg accent)
+    "ui.cursor.match"        (hash 'fg accent   'bg bg-hl)
+
+   ;; Selection — dim green, matching select cursor hue
+    "ui.selection"         (hash 'bg bg-alt)
+    "ui.selection.primary" (hash 'bg bg-hl)
+
+   ;; Line numbers — transparent bg
+    "ui.linenr"          (hash 'fg fg-dim)
+    "ui.linenr.selected" (hash 'fg fg)
+
+   ;; Status line separator
+    "ui.statusline.separator" (hash 'fg fg-dim)
+
+   ;; Virtual text — transparent bg
    "ui.virtual.whitespace"     (hash 'fg fg-dim)
    "ui.virtual.indent-guide"   (hash 'fg fg-dim)
    "ui.virtual.inlay-hint"     (hash 'fg fg-dim)
@@ -229,7 +230,10 @@
    "ui.virtual.jump-label"     (hash 'fg accent)
    "ui.virtual.ruler"          (hash 'fg fg-dim)
 
+   ;; Window, popup, menu — transparent bg
    "ui.window"      (hash 'fg fg-dim)
+   "ui.popup"       (hash 'fg fg)
+   "ui.menu"        (hash 'fg fg)
    "ui.menu.scroll" (hash 'fg fg-dim)))
 
 ;; ── Assemble theme ────────────────────────────────────────
