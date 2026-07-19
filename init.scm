@@ -16,7 +16,7 @@
 (indent-guides (ig-render #t))
 
 ;; Editor misc: bufferline, clipboard, yank, jump labels
-(bufferline "always")
+; (bufferline "always")
 (soft-wrap (sw-enable #t))
 (set-option! 'clipboard-provider "pasteboard")
 (set-option! 'default-yank-register "+")
@@ -33,9 +33,9 @@
   #:center (list 'file-name 'file-modification-indicator)
   #:right (list 'diagnostics 'selections 'position 'file-indent-style
                 'position-percentage 'total-line-numbers 'version-control 'file-type)
-  #:mode-normal "◇ NORMAL"
-  #:mode-insert "▸ INSERT"
-  #:mode-select "◉ SELECT")
+  #:mode-normal "❖ NORMAL"
+  #:mode-insert "❖ INSERT"
+  #:mode-select "❖ SELECT")
 
 ;; moka.hx: statusline and bufferline (disabled in favor of built-in)
 ; (smith-plugin "https://github.com/Ra77a3l3-jar/moka.hx.git"
@@ -64,18 +64,18 @@
 ;     #:gap 0)
 ;    (moka-bufferline-enable!)))
 
-(smith-plugin "https://github.com/Ra77a3l3-jar/forest.hx.git"
-  (config
-   ;; Use 'right instead of 'left to move the sidebar.
-   (forest-configure! 'left #:ignore (list ".git" "target" "__pycache__"))
+; (smith-plugin "https://github.com/Ra77a3l3-jar/forest.hx.git"
+;   (config
+;    ;; Use 'right instead of 'left to move the sidebar.
+;    (forest-configure! 'left #:ignore (list ".git" "target" "__pycache__"))
 
-   ;; Select 'snacks (persistent sidebar) or 'mini (floating).
-   (forest-set-style! 'snacks))
+;    ;; Select 'snacks (persistent sidebar) or 'mini (floating).
+;    (forest-set-style! 'snacks))
 
-  ;; Open or focus forest.hx with Space e in normal mode. Bindings are data,
-  ;; so the keymap macro does not cross Smith's delayed evaluation boundary.
-  (bind
-   ("normal" ("space" "e") ":forest-open")))
+;   ;; Open or focus forest.hx with Space e in normal mode. Bindings are data,
+;   ;; so the keymap macro does not cross Smith's delayed evaluation boundary.
+;   (bind
+;    ("normal" ("space" "e") ":forest-open")))
 
 ;; Synchronize after every smith-plugin declaration has been evaluated.
 (smith-init)
