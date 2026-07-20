@@ -29,8 +29,8 @@
 ;; ── Statusline ───────────────────────────────────────────────────
 ;; Built-in statusline with SCM (version-control) info
 (statusline
-  #:left (list 'mode)
-  #:center (list 'file-name 'file-modification-indicator)
+  #:left (list 'mode 'file-name 'file-modification-indicator)
+  #:center (list)
   #:right (list 'diagnostics 'selections 'position 'file-indent-style
                 'position-percentage 'total-line-numbers 'version-control 'file-type)
   #:mode-normal "❖ NORMAL"
