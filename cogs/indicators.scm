@@ -5,6 +5,7 @@
 (require "helix/editor.scm")
 (require "helix/misc.scm")
 (require "helix/static.scm")
+(require-builtin helix/core/text as text.)
 (require "cogs/color.scm")
 (require (only-in "helix/themes.scm" string->color))
 
@@ -28,6 +29,15 @@
 
 (define *git-cache-dir* #f)
 (define *git-cache-branch* #f)
+
+(define (count-newlines s)
+  (let loop ([i 0] [n 0])
+    (if (>= i (string-length s))
+        n
+        (loop (+ i 1) (if (char=? (string-ref s i) #\newline) (+ n 1) n)))))
+
+(define (buffer-text doc-id)
+  (with-handler (lambda (err) "") (text.rope->string (editor->text doc-id))))
 
 (define (git-branch doc-id)
   (define path (editor-document->path doc-id))
@@ -84,7 +94,7 @@
 (provide minor-bg)
 
 (define (minor-bg)
-  (darken (major-bg) 0.4))
+  (darken (desaturate (major-bg) 0.3) 0.4))
 
 (provide text-color)
 
@@ -105,6 +115,13 @@
 
 (define (resolve-color arg)
   (if (procedure? arg) (arg) arg))
+
+(provide auto-fg)
+;;@doc
+;; Wraps a bg thunk: returns a thunk that yields a light or dark
+;; text color depending on the bg's luminance.
+(define (auto-fg bg-fn)
+  (lambda () (contrast-text (resolve-color bg-fn))))
 
 ;; ── Arc factories ────────────────────────────────────────────────
 
@@ -189,7 +206,7 @@
       (define fg (resolve-color fg-fn))
       (if branch
           (list
-            (span "  " (named-style (accent) bg))
+            (span "  " (named-style fg bg))
             (span branch (named-style fg bg))
             (span " " (named-style fg bg)))
           '()))))
@@ -219,12 +236,28 @@
                         #:bg (bg-fn (lambda () Color/Reset)))
   (status-element
     (lambda (view-id focused?)
-      (define pos (cursor-position))
-      (define text (string-append " " (number->string pos) " "))
+      (define doc-id (editor->doc-id view-id))
+      (define offset (cursor-position))
+      (define text (buffer-text doc-id))
+      (define total (max 1 (+ (count-newlines text) 1)))
+      (define line (+ (count-newlines (substring text 0 offset)) 1))
+      (define col
+        (let ([ls
+               (let loop ([i (- offset 1)])
+                 (if (or (< i 0) (char=? (string-ref text i) #\newline))
+                     (+ i 1)
+                     (loop (- i 1))))])
+          (- offset ls)))
+      (define pct
+        (if (> total 1)
+            (clamp (inexact->exact (round (* 100.0 (/ (- line 1) (- total 1))))) 0 100)
+            0))
+      (define display (string-append " " (number->string line) ":" (number->string col)
+                                     " " (number->string pct) "% "))
       (define bg (resolve-color bg-fn))
       (define fg (resolve-color fg-fn))
       (list
-        (span text
+        (span display
               (~> (style)
                   (style-fg fg)
                   (style-bg bg)))))))
