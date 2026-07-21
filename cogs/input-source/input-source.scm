@@ -171,7 +171,7 @@
             (register-hook 'terminal-focus-gained
               (lambda ()
                 (unless (insert-mode? (editor-mode))
-                  (input-source-to-default))))))
+                   (input-source-to-default)))))
           (set-warning! (string-append
                            "im-switch: no supported tool found "
                            "(tried macism, fcitx5-remote, ibus, and Windows). "
