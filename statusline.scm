@@ -3,7 +3,7 @@
 
 (require "helix/configuration.scm")
 (require (only-in "helix/themes.scm" string->color))
-(require "cogs/indicators.scm")
+(require "cogs/indicators/indicators.scm")
 (require "cogs/color.scm")
 
 ;; ── Color thunks ─────────────────────────────────────────────────
