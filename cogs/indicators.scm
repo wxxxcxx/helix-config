@@ -11,6 +11,7 @@
 (require "cogs/indicators/position.scm")
 (require "cogs/indicators/file-type.scm")
 (require "cogs/indicators/register.scm")
+(require "cogs/indicators/buffers.scm")
 
 (provide named-style resolve-color auto-fg
          mode-style
@@ -18,4 +19,4 @@
          mode-indicator
          file-name-indicator version-control-indicator
          selections-indicator position-indicator file-type-indicator
-         register-indicator)
+         register-indicator buffers-indicator)

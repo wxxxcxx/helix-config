@@ -31,7 +31,7 @@
       (apply append
         (list
           (list
-            (span "  " (named-style fg bg))
+            (span "  " (named-style fg bg))
             (span (or name "[no name]") (named-style fg bg)))
           (if dirty?
               (list (span "*" (named-style dirty-color bg))

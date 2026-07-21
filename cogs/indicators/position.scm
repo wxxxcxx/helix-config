@@ -25,7 +25,7 @@
             0))
       (define display (string-append " " (number->string line)
                                      ":" (number->string col)
-                                     " / " (number->string total)
+                                     "/" (number->string total)
                                      ", " (number->string pct) "% "))
       (define bg (resolve-color bg-fn))
       (define fg (resolve-color fg-fn))

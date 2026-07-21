@@ -25,8 +25,10 @@
 (provide init)
 
 (define (init)
+  (bufferline "never")
   (statusline
-    #:center (list 'workspace-diagnostics 'diagnostics 'spinner)
+    #:center (list 'primary-selection-length 'file-indent-style 'file-line-ending 'file-encoding
+                   'read-only-indicator 'diagnostics 'workspace-diagnostics 'spinner)
     #:left (list
       (left-arc-indicator #:fg major-bg)
       (mode-indicator #:fg (auto-fg major-bg) #:bg major-bg)
@@ -38,6 +40,7 @@
       (left-arc-indicator #:fg minor-bg)
       (selections-indicator #:fg (auto-fg minor-bg) #:bg minor-bg)
       (position-indicator #:fg (auto-fg minor-bg) #:bg minor-bg)
+      (buffers-indicator #:fg (auto-fg minor-bg) #:bg minor-bg)
       (left-arc-indicator #:fg major-bg #:bg minor-bg)
       (file-type-indicator #:fg (auto-fg major-bg) #:bg major-bg)
       (right-arc-indicator #:fg major-bg))))
