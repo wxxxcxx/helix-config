@@ -10,7 +10,9 @@
   (indent-guides (ig-render #t))
   (bufferline "always")
   (soft-wrap (sw-enable #t))
-  (set-option! 'clipboard-provider "pasteboard")
+  (unless (equal? (current-os!) "windows")
+    (set-option! 'clipboard-provider
+                 (if (equal? (current-os!) "macos") "pasteboard" "xclip")))
   (set-option! 'default-yank-register "+")
   (jump-label-alphabet "fjdkslarueiwoqpvncmxz")
   (helix.theme "woz"))
