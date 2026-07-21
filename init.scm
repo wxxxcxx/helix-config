@@ -24,7 +24,7 @@
 (smith-init)
 
 ;; ── Input source switching ──────────────────────────────────────
-(require (prefix-in input-source. "cogs/input-source.scm"))
+(require (prefix-in input-source. "cogs/input-source/input-source.scm"))
 (input-source.autoconfigure!)
 
 ;; ── Splash screen (only on blank startup) ───────────────────────
