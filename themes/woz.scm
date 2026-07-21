@@ -232,11 +232,11 @@
    "ui.virtual.jump-label"     (hash 'fg accent)
    "ui.virtual.ruler"          (hash 'fg fg-dim)
 
-   ;; Window, popup, menu — transparent bg
+   ;; Window, popup, menu
    "ui.window"      (hash 'fg fg-dim)
    "ui.popup"       (hash 'fg fg)
-   "ui.menu"          (hash 'fg fg)
-   "ui.menu.selected" (hash 'fg accent)
+   "ui.menu"          (hash 'fg fg 'bg bg-alt)
+   "ui.menu.selected" (hash 'fg accent 'bg bg-hl)
    "ui.menu.scroll"   (hash 'fg fg-dim)))
 
 ;; ── Assemble theme ────────────────────────────────────────
