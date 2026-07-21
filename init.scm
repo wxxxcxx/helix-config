@@ -11,21 +11,21 @@
                   smith-init))
 
 ;; Base config
-(require (prefix-in default. "default.scm"))
-(default.init)
+(require "default.scm")
+(default-init)
 
 
 
 ;; Statusline config
-(require (prefix-in statusline. "statusline.scm"))
-(statusline.init)
+(require "statusline.scm")
+(statusline-init)
 
 ;; Synchronize after every smith-plugin declaration has been evaluated.
 (smith-init)
 
 ;; ── Input source switching ──────────────────────────────────────
 (require "cogs/input-source/input-source.scm")
-(input-source-autoconfigure!)
+(input-source-init)
 
 ;; ── Splash screen (only on blank startup) ───────────────────────
 (require "cogs/splash.scm")

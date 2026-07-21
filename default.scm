@@ -5,7 +5,7 @@
 (require "helix/components.scm")
 (require "themes/woz.scm")
 
-(define (init)
+(define (default-init)
   (line-number 'relative)
   (indent-guides (ig-render #t))
   (bufferline "always")
@@ -15,4 +15,4 @@
   (jump-label-alphabet "fjdkslarueiwoqpvncmxz")
   (helix.theme "woz"))
 
-(provide init)
+(provide default-init)

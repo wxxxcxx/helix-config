@@ -2,9 +2,8 @@
 (require "helix/misc.scm")
 (require "helix/static.scm")
 
-(provide input-source-configure! input-source-autoconfigure!
-         input-source-get input-source-switch input-source-to-default input-source-back input-source-reset!
-         )
+(provide input-source-configure! input-source-autoconfigure! input-source-init
+         input-source-get input-source-switch input-source-to-default input-source-back input-source-reset!)
 
 ;; ── Internal State ──────────────────────────────────────────────
 
@@ -177,3 +176,6 @@
                            "(tried macism, fcitx5-remote, ibus, and Windows). "
                            "Configure manually with input-source-configure!."))))
     (set! *initialized* #t)))
+
+(define (input-source-init)
+  (input-source-autoconfigure!))

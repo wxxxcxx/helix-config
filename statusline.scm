@@ -27,9 +27,9 @@
 
 ;; ── Statusline layout ────────────────────────────────────────────
 
-(provide init)
+(provide statusline-init)
 
-(define (init)
+(define (statusline-init)
   (bufferline "never")
   (statusline
     #:center (list 'primary-selection-length 'file-indent-style 'file-line-ending 'file-encoding
