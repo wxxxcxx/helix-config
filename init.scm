@@ -4,11 +4,9 @@
 (require (prefix-in helix.keymaps. "helix/keymaps.scm"))
 (require "helix/configuration.scm")
 (require "helix/components.scm")
+(require "helix/misc.scm")
 
-(require (only-in "smith.hx/smith.scm"
-                  smith-plugin
-                  smith-prune
-                  smith-init))
+(require "cogs/smith.scm")
 
 ;; Base config
 (require "default.scm")
@@ -29,5 +27,4 @@
 
 ;; ── Splash screen (only on blank startup) ───────────────────────
 (require "cogs/splash.scm")
-(when (equal? (command-line) '("hx"))
-  (show-splash))
+(splash-smart-show)

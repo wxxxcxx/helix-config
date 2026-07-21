@@ -3,7 +3,7 @@
 (require "helix/components.scm")
 (require "helix/misc.scm")
 
-(provide show-splash)
+(provide splash-show splash-smart-show)
 
 (define splash-text
   "
@@ -41,8 +41,17 @@
 (define (splash-event-handler _ event)
   (if (key-event? event) event-result/ignore-and-close event-result/ignore))
 
-(define (show-splash)
+(define (splash-show)
   (push-component! (new-component! "splash"
                                     (Splash)
                                     splash-render
                                     (hash "handle_event" splash-event-handler))))
+
+(define (splash-smart-show)
+  (define args (cdr (command-line)))
+  (define (has-file? lst)
+    (and (not (null? lst))
+         (or (not (char=? (string-ref (car lst) 0) #\-))
+             (has-file? (cdr lst)))))
+  (unless (has-file? args)
+    (splash-show)))
