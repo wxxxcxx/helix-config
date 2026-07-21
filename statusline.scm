@@ -13,8 +13,8 @@
 (define (major-bg)
   (or (style->bg (mode-style)) (style->fg (mode-style))))
 
-(define (minor-bg)
-  (darken (desaturate (major-bg) 0.3) 0.4))
+(define (minor-bg factor)
+  (darken (desaturate (major-bg) 0.3) factor))
 
 (define (text-color) (string->color "#D8DEE9"))
 
@@ -32,15 +32,18 @@
     #:left (list
       (left-arc-indicator #:fg major-bg)
       (mode-indicator #:fg (auto-fg major-bg) #:bg major-bg)
-      (right-arc-indicator #:fg major-bg #:bg minor-bg)
-      (version-control-indicator #:fg (auto-fg minor-bg) #:bg minor-bg)
-      (file-name-indicator #:fg (auto-fg minor-bg) #:bg minor-bg)
-      (right-arc-indicator #:fg minor-bg))
+      (right-arc-indicator #:fg major-bg #:bg (lambda () (minor-bg 0.4)))
+      (version-control-indicator #:fg (auto-fg (lambda () (minor-bg 0.4))) #:bg (lambda () (minor-bg 0.4)))
+      (right-arc-indicator #:fg (lambda () (minor-bg 0.4)) #:bg (lambda () (minor-bg 0.3)))
+      (file-name-indicator #:fg (auto-fg (lambda () (minor-bg 0.3))) #:bg (lambda () (minor-bg 0.3)))
+      (right-arc-indicator #:fg (lambda () (minor-bg 0.3))))
     #:right (list
-      (left-arc-indicator #:fg minor-bg)
-      (selections-indicator #:fg (auto-fg minor-bg) #:bg minor-bg)
-      (position-indicator #:fg (auto-fg minor-bg) #:bg minor-bg)
-      (buffers-indicator #:fg (auto-fg minor-bg) #:bg minor-bg)
-      (left-arc-indicator #:fg major-bg #:bg minor-bg)
+      (left-arc-indicator #:fg (lambda () (minor-bg 0.2)))
+      (selections-indicator #:fg (auto-fg (lambda () (minor-bg 0.2))) #:bg (lambda () (minor-bg 0.2)))
+      (left-arc-indicator #:fg (lambda () (minor-bg 0.3)) #:bg (lambda () (minor-bg 0.2)))
+      (position-indicator #:fg (auto-fg (lambda () (minor-bg 0.3))) #:bg (lambda () (minor-bg 0.3)))
+      (left-arc-indicator #:fg (lambda () (minor-bg 0.4)) #:bg (lambda () (minor-bg 0.3)))
+      (buffers-indicator #:fg (auto-fg (lambda () (minor-bg 0.4))) #:bg (lambda () (minor-bg 0.4)))
+      (left-arc-indicator #:fg major-bg #:bg (lambda () (minor-bg 0.4)))
       (file-type-indicator #:fg (auto-fg major-bg) #:bg major-bg)
       (right-arc-indicator #:fg major-bg))))
