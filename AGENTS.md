@@ -19,7 +19,7 @@ Helix 编辑器配置，基于 [mattwparas/helix](https://github.com/mattwparas/
 ## 风格与注意事项
 
 - 线程宏：`(~> value fn1 fn2)`
-- require 优先用 `prefix-in` 为长名称创建别名：`(require (prefix-in theme. "helix/themes.scm"))`；只需要个别函数时用 `only-in`：`(require (only-in "helix/themes.scm" string->color))`
+- require 只需要个别函数时优先使用 `only-in`：`(require (only-in "helix/themes.scm" string->color))`，必要时用 `prefix-in` 为长名称创建别名：`(require (prefix-in theme. "helix/themes.scm"))`，；
 - require 路径相对于项目根目录或 `~/.local/share/steel/cogs/`
 - 哈希表：`(hash 'key value)`，用 `hash-union` 合并
 - 主题作用域是字符串：`"ui.statusline.normal"`

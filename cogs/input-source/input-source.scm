@@ -2,25 +2,24 @@
 (require "helix/misc.scm")
 (require "helix/static.scm")
 
-(provide configure! autoconfigure!
-         get switch to-default back reset!
-         hooks-enabled? enable-hooks! disable-hooks!)
+(provide input-source-configure! input-source-autoconfigure!
+         input-source-get input-source-switch input-source-to-default input-source-back input-source-reset!
+         )
 
 ;; ── Internal State ──────────────────────────────────────────────
 
-(define *input-source-default-source* #f)
-(define *input-source-previous-source* #f)
-(define *input-source-get-cmd* #f)
-(define *input-source-set-cmd* #f)
-(define *input-source-hooks-enabled* #t)
-(define *input-source-initialized* #f)
+(define *default-source* #f)
+(define *previous-source* #f)
+(define *get-cmd* #f)
+(define *set-cmd* #f)
+(define *initialized* #f)
 (define *detected* #f)
 (define *detected?* #f)
 
-(define *input-source-insert-mode* (string->editor-mode "insert"))
+(define *insert-mode* (string->editor-mode "insert"))
 
 (define (insert-mode? mode)
-  (equal? mode *input-source-insert-mode*))
+  (equal? mode *insert-mode*))
 
 ;; ── Private Helpers ─────────────────────────────────────────────
 
@@ -47,23 +46,23 @@
              (append (cdr cmd) extra-args))))
 
 (define (resolve-get-cmd)
-  (if (procedure? *input-source-get-cmd*)
-      (*input-source-get-cmd*)
-      *input-source-get-cmd*))
+  (if (procedure? *get-cmd*)
+      (*get-cmd*)
+      *get-cmd*))
 
 (define (resolve-set-cmd)
-  (if (procedure? *input-source-set-cmd*)
-      (*input-source-set-cmd*)
-      *input-source-set-cmd*))
+  (if (procedure? *set-cmd*)
+      (*set-cmd*)
+      *set-cmd*))
 
 (define (resolve-default)
-  (if (procedure? *input-source-default-source*)
-      (*input-source-default-source*)
-      *input-source-default-source*))
+  (if (procedure? *default-source*)
+      (*default-source*)
+      *default-source*))
 
 ;; ── Configuration ───────────────────────────────────────────────
 
-(define (configure! #:default-source default-source
+(define (input-source-configure! #:default-source default-source
                     #:get-cmd get-cmd
                     #:set-cmd set-cmd)
   (unless (and default-source
@@ -80,48 +79,39 @@
                    (and (list? set-cmd) (not (null? set-cmd)) (string? (car set-cmd)))))
     (error! (string-append "configure!: #:set-cmd must be a list or procedure, got "
                            (to-string set-cmd))))
-  (set! *input-source-default-source* default-source)
-  (set! *input-source-get-cmd* get-cmd)
-  (set! *input-source-set-cmd* set-cmd))
+  (set! *default-source* default-source)
+  (set! *get-cmd* get-cmd)
+  (set! *set-cmd* set-cmd))
 
 ;; ── Public API ──────────────────────────────────────────────────
 
-(define (get)
+(define (input-source-get)
   (capture-output (resolve-get-cmd)))
 
-(define (switch source-id)
+(define (input-source-switch source-id)
   (unless (string? source-id)
-    (error! (string-append "switch: expected a string, got " (to-string source-id))))
+    (error! (string-append "input-source-switch: expected a string, got " (to-string source-id))))
   (with-handler
     (lambda (err)
-      (set-warning! (string-append "switch: " (to-string err))))
+      (set-warning! (string-append "input-source-switch: " (to-string err))))
     (run-command (resolve-set-cmd) source-id)))
 
-(define (to-default)
+(define (input-source-to-default)
   (define default-source (resolve-default))
   (unless default-source
-    (error! "to-default: default-source not configured. Call configure! first."))
-  (define current (get))
+    (error! "input-source-to-default: not configured. Call input-source-configure! first."))
+  (define current (input-source-get))
   (when (and current (not (string=? current default-source)))
-    (set! *input-source-previous-source* current)
-    (switch default-source)))
+    (set! *previous-source* current)
+    (input-source-switch default-source)))
 
-(define (back)
-  (when *input-source-previous-source*
-    (switch *input-source-previous-source*)
-    (set! *input-source-previous-source* #f)))
+(define (input-source-back)
+  (when *previous-source*
+    (input-source-switch *previous-source*)
+    (set! *previous-source* #f)))
 
-(define (reset!)
-  (set! *input-source-previous-source* #f))
-
-(define (hooks-enabled?)
-  *input-source-hooks-enabled*)
-
-(define (enable-hooks!)
-  (set! *input-source-hooks-enabled* #t))
-
-(define (disable-hooks!)
-  (set! *input-source-hooks-enabled* #f))
+(define (input-source-reset!)
+  (set! *previous-source* #f))
 
 ;; ── Platform Detection ──────────────────────────────────────────
 
@@ -162,30 +152,28 @@
   (let ([r (detect)])
     (and r (caddr r))))
 
-(define (autoconfigure!)
-  (unless *input-source-initialized*
+(define (input-source-autoconfigure!)
+  (unless *initialized*
     (let ([default (detect-default-source)]
           [get-cmd (detect-get-cmd)]
           [set-cmd (detect-set-cmd)])
       (if get-cmd
           (begin
-            (configure! #:default-source default
-                        #:get-cmd get-cmd
-                        #:set-cmd set-cmd)
+            (input-source-configure! #:default-source default
+                                     #:get-cmd get-cmd
+                                     #:set-cmd set-cmd)
             (register-hook 'on-mode-switch
               (lambda (event)
-                (when *input-source-hooks-enabled*
-                  (let ([old (mode-switch-old event)]
-                        [new (mode-switch-new event)])
-                    (when (and (insert-mode? old) (not (insert-mode? new)))
-                      (to-default))))))
+                (let ([old (mode-switch-old event)]
+                      [new (mode-switch-new event)])
+                  (when (and (insert-mode? old) (not (insert-mode? new)))
+                    (input-source-to-default)))))
             (register-hook 'terminal-focus-gained
               (lambda ()
-                (when *input-source-hooks-enabled*
-                  (unless (insert-mode? (editor-mode))
-                    (to-default))))))
+                (unless (insert-mode? (editor-mode))
+                  (input-source-to-default))))))
           (set-warning! (string-append
                            "im-switch: no supported tool found "
                            "(tried macism, fcitx5-remote, ibus, and Windows). "
-                           "Configure manually with configure!."))))
-    (set! *input-source-initialized* #t)))
+                           "Configure manually with input-source-configure!."))))
+    (set! *initialized* #t)))
