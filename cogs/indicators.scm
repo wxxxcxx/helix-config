@@ -16,6 +16,6 @@
          mode-style
          left-arc-indicator right-arc-indicator
          mode-indicator
-         file-name-indicator modification-indicator version-control-indicator
+         file-name-indicator version-control-indicator
          selections-indicator position-indicator file-type-indicator
          register-indicator)

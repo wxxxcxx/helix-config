@@ -26,20 +26,18 @@
 
 (define (init)
   (statusline
-    #:center (list 'diagnostics 'spinner)
+    #:center (list 'workspace-diagnostics 'diagnostics 'spinner)
     #:left (list
       (left-arc-indicator #:fg major-bg)
       (mode-indicator #:fg (auto-fg major-bg) #:bg major-bg)
       (right-arc-indicator #:fg major-bg #:bg minor-bg)
-      (file-name-indicator #:fg (auto-fg minor-bg) #:bg minor-bg)
-      (modification-indicator #:fg (auto-fg minor-bg) #:bg minor-bg)
       (version-control-indicator #:fg (auto-fg minor-bg) #:bg minor-bg)
+      (file-name-indicator #:fg (auto-fg minor-bg) #:bg minor-bg)
       (right-arc-indicator #:fg minor-bg))
     #:right (list
       (left-arc-indicator #:fg minor-bg)
-      
       (selections-indicator #:fg (auto-fg minor-bg) #:bg minor-bg)
-      (file-type-indicator #:fg (auto-fg minor-bg) #:bg minor-bg)
+      (position-indicator #:fg (auto-fg minor-bg) #:bg minor-bg)
       (left-arc-indicator #:fg major-bg #:bg minor-bg)
-      (position-indicator #:fg (auto-fg major-bg) #:bg major-bg)
+      (file-type-indicator #:fg (auto-fg major-bg) #:bg major-bg)
       (right-arc-indicator #:fg major-bg))))

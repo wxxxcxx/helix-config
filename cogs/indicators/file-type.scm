@@ -15,6 +15,6 @@
       (define bg (resolve-color bg-fn))
       (define fg (resolve-color fg-fn))
       (list
-        (span " " (named-style fg bg))
+        (span " <" (named-style fg bg))
         (span lang (named-style fg bg))
-        (span " " (named-style fg bg))))))
+        (span "> " (named-style fg bg))))))

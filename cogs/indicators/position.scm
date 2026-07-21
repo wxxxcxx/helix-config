@@ -33,13 +33,15 @@
                  (if (or (< i 0) (char=? (string-ref text i) #\newline))
                      (+ i 1)
                      (loop (- i 1))))])
-          (- offset ls)))
+          (+ 1 (- offset ls))))
       (define pct
         (if (> total 1)
             (clamp (inexact->exact (round (* 100.0 (/ (- line 1) (- total 1))))) 0 100)
             0))
-      (define display (string-append " " (number->string line) ":" (number->string col)
-                                     " " (number->string pct) "% "))
+      (define display (string-append " " (number->string line)
+                                     ":" (number->string col)
+                                     "/" (number->string total)
+                                     "," (number->string pct) "% "))
       (define bg (resolve-color bg-fn))
       (define fg (resolve-color fg-fn))
       (list

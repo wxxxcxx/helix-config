@@ -14,7 +14,9 @@
       (define count (length (selection->ranges sel)))
       (define bg (resolve-color bg-fn))
       (define fg (resolve-color fg-fn))
-      (list
-        (span " " (named-style fg bg))
-        (span (number->string count) (named-style fg bg))
-        (span " " (named-style fg bg))))))
+      (if (> count 1)
+          (list
+            (span " 󰕢 " (named-style fg bg))
+            (span (number->string count) (named-style fg bg))
+            (span " " (named-style fg bg)))
+          '()))))

@@ -13,7 +13,7 @@
        (substring path (+ i 1) (string-length path))]
       [else (loop (- i 1))])))
 
-;; ── File name ────────────────────────────────────────────────────
+(define dirty-color (string->color "#BF616A"))
 
 (provide file-name-indicator)
 
@@ -25,28 +25,15 @@
       (define name
         (let ([path (editor-document->path doc-id)])
           (and path (basename path))))
+      (define dirty? (and name (editor-document-dirty? doc-id)))
       (define bg (resolve-color bg-fn))
       (define fg (resolve-color fg-fn))
-      (list
-        (span " " (named-style fg bg))
-        (span (or name "[no name]") (named-style fg bg))
-        (span " " (named-style fg bg))))))
-
-;; ── Modification indicator ───────────────────────────────────────
-
-(provide modification-indicator)
-
-(define dirty-color (string->color "#BF616A"))
-
-(define (modification-indicator #:fg (fg-fn (lambda () Color/Reset))
-                                 #:bg (bg-fn (lambda () Color/Reset)))
-  (status-element
-    (lambda (view-id focused?)
-      (define doc-id (editor->doc-id view-id))
-      (define bg (resolve-color bg-fn))
-      (define fg (resolve-color fg-fn))
-      (if (editor-document-dirty? doc-id)
+      (apply append
+        (list
           (list
-            (span "*" (named-style dirty-color bg))
-            (span " " (named-style fg bg)))
-          '()))))
+            (span "  " (named-style fg bg))
+            (span (or name "[no name]") (named-style fg bg)))
+          (if dirty?
+              (list (span "*" (named-style dirty-color bg))
+                    (span " " (named-style fg bg)))
+              (list (span " " (named-style fg bg)))))))))
