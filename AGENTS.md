@@ -6,6 +6,7 @@ Helix 编辑器配置，基于 [mattwparas/helix](https://github.com/mattwparas/
 
 - `~/.local/share/steel/cogs/helix/*.scm` — 官方 Helix Steel API
 - `~/.local/share/steel/cogs/steel/packages/` — Steel 标准库
+- https://mattwparas.github.io/steel/book/introduction.html Steel 语言文档
 - [mattwparas/helix-config](https://github.com/mattwparas/helix-config) — 分支作者的示例
 
 ## 架构
