@@ -183,7 +183,7 @@
    "ui.background" (hash 'fg fg)
 
    "ui.text"  (hash 'fg fg)
-   "ui.text.focus"     (hash 'fg fg)
+   "ui.text.focus"     (hash 'fg fg 'bg bg-hl)
    "ui.text.info"      (hash 'fg accent)
    "ui.text.inactive"  (hash 'fg fg-dim)
    "ui.text.directory" (hash 'fg accent-alt)
@@ -205,9 +205,11 @@
     "ui.statusline.select"      (hash 'fg green)
 
    ;; Cursor — fallback / generic
-    "ui.cursor"              (hash 'fg fg       'bg accent-dim)
-    "ui.cursor.primary"      (hash 'fg fg-bright 'bg accent)
-    "ui.cursor.match"        (hash 'fg accent   'bg bg-hl)
+   "ui.cursor"              (hash 'fg fg       'bg accent-dim)
+   "ui.cursor.primary"      (hash 'fg fg-bright 'bg accent)
+   "ui.cursor.match"        (hash 'fg accent   'bg bg-hl)
+   "ui.cursorline"          (hash 'bg bg-alt)
+   "ui.cursorline.primary"  (hash 'bg bg-hl)
 
    ;; Selection — dim green, matching select cursor hue
     "ui.selection"         (hash 'bg bg-alt)
@@ -233,15 +235,15 @@
    ;; Window, popup, menu — transparent bg
    "ui.window"      (hash 'fg fg-dim)
    "ui.popup"       (hash 'fg fg)
-   "ui.menu"        (hash 'fg fg)
-   "ui.menu.scroll" (hash 'fg fg-dim)))
+   "ui.menu"          (hash 'fg fg)
+   "ui.menu.selected" (hash 'fg accent)
+   "ui.menu.scroll"   (hash 'fg fg-dim)))
 
 ;; ── Assemble theme ────────────────────────────────────────
 (define woz-hash (hash-union nord-syntax-hash woz-ui-hash))
 (define woz-theme (theme.hashmap->theme "woz" woz-hash))
 
 ;; ── Chained styles (italic, bold) ─────────────────────────
-;; Bold — structural / emphatic elements
 (~> woz-theme
     (theme.comment                (fg+italic fg-dim))
     (theme.comment.block.documentation (fg+italic fg-dim))
