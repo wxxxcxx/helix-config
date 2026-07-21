@@ -14,6 +14,8 @@
 (require (prefix-in default. "default.scm"))
 (default.init)
 
+
+
 ;; Statusline config
 (require (prefix-in statusline. "statusline.scm"))
 (statusline.init)
@@ -24,3 +26,8 @@
 ;; ── Input source switching ──────────────────────────────────────
 (require (prefix-in input-source. "cogs/input-source.scm"))
 (input-source.autoconfigure!)
+
+;; ── Splash screen (only on blank startup) ───────────────────────
+(require "cogs/splash.scm")
+(when (equal? (command-line) '("hx"))
+  (show-splash))
