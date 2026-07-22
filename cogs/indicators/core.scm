@@ -11,10 +11,10 @@
 
 (provide resolve-color)
 
-(define (resolve-color arg)
-  (if (procedure? arg) (arg) arg))
+(define (resolve-color arg . args)
+  (if (procedure? arg) (apply arg args) arg))
 
 (provide auto-fg)
 
 (define (auto-fg bg-fn)
-  (lambda () (contrast-text (resolve-color bg-fn))))
+  (lambda args (contrast-text (apply resolve-color bg-fn args))))

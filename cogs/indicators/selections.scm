@@ -6,14 +6,14 @@
 
 (provide selections-indicator)
 
-(define (selections-indicator #:fg (fg-fn (lambda () Color/Reset))
-                               #:bg (bg-fn (lambda () Color/Reset)))
+(define (selections-indicator #:fg (fg-fn (lambda args Color/Reset))
+                               #:bg (bg-fn (lambda args Color/Reset)))
   (status-element
     (lambda (view-id focused?)
       (define sel (current-selection-object))
       (define count (length (selection->ranges sel)))
-      (define bg (resolve-color bg-fn))
-      (define fg (resolve-color fg-fn))
+      (define bg (resolve-color bg-fn focused?))
+      (define fg (resolve-color fg-fn focused?))
       (if (> count 1)
           (list
             (span " 󰕢 " (named-style fg bg))

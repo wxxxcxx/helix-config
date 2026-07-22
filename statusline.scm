@@ -5,16 +5,20 @@
 (require (only-in "helix/themes.scm" string->color))
 (require "cogs/indicators/indicators.scm")
 (require "cogs/color.scm")
+(require "cogs/file-tree.scm")
 
 ;; ── Color thunks ─────────────────────────────────────────────────
 
 (provide major-bg minor-bg text-color accent)
 
-(define (major-bg)
-  (or (style->bg (mode-style)) (style->fg (mode-style))))
+(define (major-bg . args)
+  (define focused? (if (null? args) #t (car args)))
+  (define base (or (style->bg (mode-style)) (style->fg (mode-style))))
+  (if (and focused? (not (file-tree-focused?))) base (desaturate base 0.05)))
 
-(define (minor-bg factor)
-  (darken (desaturate (major-bg) 0.3) factor))
+(define (minor-bg factor . args)
+  (define focused? (if (null? args) #t (car args)))
+  (darken (desaturate (major-bg focused?) 0.3) factor))
 
 (define (text-color) (string->color "#D8DEE9"))
 
@@ -22,8 +26,10 @@
 
 ;; ── Shorthand helpers ────────────────────────────────────────────
 
-(define (m n) (lambda () (minor-bg n)))
-(define (a n) (auto-fg (m n)))
+(define (m n)
+  (lambda args (apply minor-bg n args)))
+(define (a n)
+  (auto-fg (lambda args (apply minor-bg n args))))
 
 ;; ── Statusline layout ────────────────────────────────────────────
 

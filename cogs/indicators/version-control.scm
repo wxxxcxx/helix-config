@@ -69,14 +69,14 @@
 
 (provide version-control-indicator)
 
-(define (version-control-indicator #:fg (fg-fn (lambda () Color/Reset))
-                                    #:bg (bg-fn (lambda () Color/Reset)))
+(define (version-control-indicator #:fg (fg-fn (lambda args Color/Reset))
+                                    #:bg (bg-fn (lambda args Color/Reset)))
   (status-element
     (lambda (view-id focused?)
       (define doc-id (editor->doc-id view-id))
       (define path (editor-document->path doc-id))
-      (define bg (resolve-color bg-fn))
-      (define fg (resolve-color fg-fn))
+      (define bg (resolve-color bg-fn focused?))
+      (define fg (resolve-color fg-fn focused?))
       (if path
           (let ([dir (parent-dir path)])
             (unless (and *git-cache-dir* (string=? dir *git-cache-dir*))

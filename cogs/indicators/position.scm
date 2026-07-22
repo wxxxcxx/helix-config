@@ -10,8 +10,8 @@
 
 (provide position-indicator)
 
-(define (position-indicator #:fg (fg-fn (lambda () Color/Reset))
-                             #:bg (bg-fn (lambda () Color/Reset)))
+(define (position-indicator #:fg (fg-fn (lambda args Color/Reset))
+                             #:bg (bg-fn (lambda args Color/Reset)))
   (status-element
     (lambda (view-id focused?)
       (define doc-id (editor->doc-id view-id))
@@ -27,8 +27,8 @@
                                      ":" (number->string col)
                                      "/" (number->string total)
                                      ", " (number->string pct) "% "))
-      (define bg (resolve-color bg-fn))
-      (define fg (resolve-color fg-fn))
+      (define bg (resolve-color bg-fn focused?))
+      (define fg (resolve-color fg-fn focused?))
       (list
         (span display
               (~> (style)

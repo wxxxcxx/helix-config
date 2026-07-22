@@ -3,7 +3,8 @@
 (require "helix/editor.scm")
 (require (prefix-in helix. "helix/commands.scm"))
 
-(provide file-tree-open file-tree-close file-tree-toggle file-tree-configure!)
+
+(provide file-tree-open file-tree-close file-tree-toggle file-tree-configure! file-tree-focused?)
 
 ;; ── Configuration ──────────────────────────────────────────────
 
@@ -102,8 +103,8 @@
   (cond
     [(not entry) event-result/consume]
     [(is-file? (car entry))
-     (set! *ft-focused* #f)
-     (enqueue-thread-local-callback (lambda () (helix.open (car entry))))
+      (set! *ft-focused* #f)
+      (enqueue-thread-local-callback (lambda () (helix.open (car entry))))
      event-result/close]
     [(is-dir? (car entry))
      (ft-toggle-dir! (car entry))
@@ -208,6 +209,9 @@
     [else event-result/consume]))
 
 ;; ── Public API ─────────────────────────────────────────────────
+
+(define (file-tree-focused?)
+  *ft-focused*)
 
 (define (file-tree-configure! #:width [width 32]
                                #:side [side 'left]

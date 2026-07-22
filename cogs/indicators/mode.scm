@@ -30,13 +30,13 @@
 (define (mode-style)
   (theme-scope-ref (string-append "ui.statusline." *current-mode*)))
 
-(define (mode-indicator #:fg (fg-fn (lambda () Color/Reset))
-                          #:bg (bg-fn (lambda () Color/Reset)))
+(define (mode-indicator #:fg (fg-fn (lambda args Color/Reset))
+                          #:bg (bg-fn (lambda args Color/Reset)))
   (status-element
     (lambda (view-id focused?)
       (list
         (span (hash-ref mode-labels *current-mode*)
               (~> (style)
-                  (style-fg (resolve-color fg-fn))
-                  (style-bg (resolve-color bg-fn))
+                  (style-fg (resolve-color fg-fn focused?))
+                  (style-bg (resolve-color bg-fn focused?))
                   style-with-bold))))))
