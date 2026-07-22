@@ -6,7 +6,11 @@
 (require "cogs/file-colors.scm")
 
 
-(provide file-tree-open file-tree-close file-tree-toggle file-tree-configure! file-tree-focused?)
+(provide file-tree-focused?)
+(provide file-tree-configure!)
+(provide file-tree-close)
+(provide file-tree-open)
+(provide file-tree-toggle)
 
 ;; ── Configuration ──────────────────────────────────────────────
 
@@ -223,9 +227,13 @@
 
 ;; ── Public API ─────────────────────────────────────────────────
 
+;;@doc
+;; Check if file tree panel is focused
 (define (file-tree-focused?)
   *ft-focused*)
 
+;;@doc
+;; Configure file tree width, side, and ignore patterns
 (define (file-tree-configure! #:width [width 32]
                                #:side [side 'left]
                                #:ignore [ignore '(".git" "target"
@@ -234,6 +242,8 @@
   (set! *ft-side* side)
   (set! *ft-ignore-set* (apply hashset ignore)))
 
+;;@doc
+;; Close the file tree panel
 (define (file-tree-close)
   (set! *ft-active* #f)
   (set! *ft-focused* #f)
@@ -245,6 +255,8 @@
          (set-editor-clip-right! 0)
          (set-editor-clip-left! 0)))))
 
+;;@doc
+;; Open the file tree panel (toggle off if already open)
 (define (file-tree-open)
   (if *ft-active*
       (file-tree-close)
@@ -263,4 +275,6 @@
                                           ft-render-fg
                                           (hash "handle_event" ft-handle-event-fg))))))
 
+;;@doc
+;; Toggle the file tree panel open/closed
 (define file-tree-toggle file-tree-open)
