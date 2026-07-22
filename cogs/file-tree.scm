@@ -2,6 +2,8 @@
 (require "helix/misc.scm")
 (require "helix/editor.scm")
 (require (prefix-in helix. "helix/commands.scm"))
+(require "cogs/glyph.scm")
+(require "cogs/file-colors.scm")
 
 
 (provide file-tree-open file-tree-close file-tree-toggle file-tree-configure! file-tree-focused?)
@@ -50,13 +52,12 @@
     (unless (or (hashset-contains? *ft-ignore-set* name)
                 (and (not *ft-show-hidden*) (ft-dotfile? name)))
       (define indent (make-string (* depth 2) #\space))
-      (define dir-closed (string-append (string (integer->char #xf07b)) " "))
-      (define dir-open (string-append (string (integer->char #xf07c)) " "))
       (define marker (if (is-dir? path)
-                   (if (hash-contains? *ft-dirs* path)
-                       (if (hash-try-get *ft-dirs* path) dir-closed dir-open)
-                       dir-closed)
-                   "  "))
+                   (string-append (if (and (hash-contains? *ft-dirs* path)
+                                          (not (hash-try-get *ft-dirs* path)))
+                                     (glyph-dir-open)
+                                     (glyph-dir-closed)) " ")
+                   (string-append (glyph-icon name) " ")))
       (set! result (cons (list path indent marker name) result))
       (when (is-dir? path)
         (unless (hash-contains? *ft-dirs* path)
@@ -161,9 +162,20 @@
       (define y (+ list-y0 row))
       (when hl?
         (frame-set-string! frame x0 y (make-string w #\space) hl-style))
-      (frame-set-string! frame x0 y prefix row-style)
-      (frame-set-string! frame (+ x0 (string-length prefix)) y
-                          (ft-truncate name (- w (string-length prefix))) row-style)
+      (if (is-dir? path)
+          (begin
+            (frame-set-string! frame x0 y prefix row-style)
+            (frame-set-string! frame (+ x0 (string-length prefix)) y
+                                (ft-truncate name (- w (string-length prefix))) row-style))
+          (begin
+            (frame-set-string! frame x0 y indent row-style)
+            (let* ([icon-chars (substring marker 0 (- (string-length marker) 1))]
+                   [icon-short (ft-truncate icon-chars 1)]
+                   [icon-str (string-append icon-short " ")])
+              (frame-set-string! frame (+ x0 (string-length indent)) y icon-str
+                                  (style-fg (style) (glyph-hex->color (file-color name))))
+              (frame-set-string! frame (+ x0 (string-length prefix)) y
+                                  (ft-truncate name (- w (string-length prefix))) row-style))))
       (loop (cdr items) (+ row 1)))))
 
 (define (ft-handle-event-bg state event)
