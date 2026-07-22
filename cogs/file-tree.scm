@@ -106,9 +106,8 @@
   (cond
     [(not entry) event-result/consume]
     [(is-file? (car entry))
-      (set! *ft-focused* #f)
-      (enqueue-thread-local-callback (lambda () (helix.open (car entry))))
-     event-result/close]
+     (enqueue-thread-local-callback (lambda () (helix.open (car entry))))
+     (file-tree-close)]
     [(is-dir? (car entry))
      (ft-toggle-dir! (car entry))
      event-result/consume]
@@ -247,28 +246,21 @@
          (set-editor-clip-left! 0)))))
 
 (define (file-tree-open)
-  (cond
-    [(not *ft-active*)
-     (set! *ft-active* #t)
-     (set! *ft-focused* #t)
-     (set! *ft-cursor* 0)
-     (set! *ft-window-start* 0)
-     (ft-build-tree!)
-     (push-component! (new-component! "file-tree-bg"
-                                       (FtBgState)
-                                       ft-render-bg
-                                       (hash "handle_event" ft-handle-event-bg)))
-     (push-component! (new-component! "file-tree-fg"
-                                       (FtFgState)
-                                       ft-render-fg
-                                       (hash "handle_event" ft-handle-event-fg)))]
-    [*ft-focused*
-     (file-tree-close)]
-    [else
-     (set! *ft-focused* #t)
-     (push-component! (new-component! "file-tree-fg"
-                                       (FtFgState)
-                                       ft-render-fg
-                                       (hash "handle_event" ft-handle-event-fg)))]))
+  (if *ft-active*
+      (file-tree-close)
+      (begin
+        (set! *ft-active* #t)
+        (set! *ft-focused* #t)
+        (set! *ft-cursor* 0)
+        (set! *ft-window-start* 0)
+        (ft-build-tree!)
+        (push-component! (new-component! "file-tree-bg"
+                                          (FtBgState)
+                                          ft-render-bg
+                                          (hash "handle_event" ft-handle-event-bg)))
+        (push-component! (new-component! "file-tree-fg"
+                                          (FtFgState)
+                                          ft-render-fg
+                                          (hash "handle_event" ft-handle-event-fg))))))
 
 (define file-tree-toggle file-tree-open)
