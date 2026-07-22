@@ -10,10 +10,10 @@
 
 (provide position-indicator)
 
-(define (position-indicator #:fg (fg-fn (lambda args Color/Reset))
-                             #:bg (bg-fn (lambda args Color/Reset)))
+(define (position-indicator #:style (style (lambda args (style))))
   (status-element
     (lambda (view-id focused?)
+      (define s (resolve-style style view-id focused?))
       (define doc-id (editor->doc-id view-id))
       (define rope (editor->text doc-id))
       (define total (max 1 (text.rope-len-lines rope)))
@@ -27,10 +27,5 @@
                                      ":" (number->string col)
                                      "/" (number->string total)
                                      ", " (number->string pct) "% "))
-      (define bg (resolve-color bg-fn focused?))
-      (define fg (resolve-color fg-fn focused?))
       (list
-        (span display
-              (~> (style)
-                  (style-fg fg)
-                  (style-bg bg)))))))
+        (span display s)))))

@@ -5,8 +5,7 @@
 
 (provide left-arc-indicator)
 
-(define (left-arc-indicator #:fg (fg-fn (lambda args Color/Reset))
-                             #:bg (bg-fn (lambda args Color/Reset)))
+(define (left-arc-indicator #:style (style (lambda args (style))))
   (status-element
     (lambda (view-id focused?)
-      (list (span "" (~> (style) (style-fg (resolve-color fg-fn focused?)) (style-bg (resolve-color bg-fn focused?))))))))
+      (list (span "" (resolve-style style view-id focused?))))))

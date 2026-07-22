@@ -7,33 +7,41 @@
 (require "cogs/color.scm")
 (require "cogs/file-tree.scm")
 
-;; ── Color thunks ─────────────────────────────────────────────────
+(provide major-bg minor-bg text-color accent statusline-init)
 
-(provide major-bg minor-bg text-color accent)
+;; ── Base color functions ─────────────────────────────────────────
 
-(define (major-bg . args)
-  (define focused? (if (null? args) #t (car args)))
+(define (major-bg focused?)
   (define base (or (style->bg (mode-style)) (style->fg (mode-style))))
   (if (and focused? (not (file-tree-focused?))) base (desaturate base 0.05)))
 
-(define (minor-bg factor . args)
-  (define focused? (if (null? args) #t (car args)))
-  (darken (desaturate (major-bg focused?) 0.3) factor))
+(define (minor-bg n focused?)
+  (darken (desaturate (major-bg focused?) 0.3) n))
 
 (define (text-color) (string->color "#D8DEE9"))
-
 (define (accent) (string->color "#88C0D0"))
 
-;; ── Shorthand helpers ────────────────────────────────────────────
+;; ── Style factories (view-id focused?) -> Style ─────────────────
 
-(define (m n)
-  (lambda args (apply minor-bg n args)))
-(define (a n)
-  (auto-fg (lambda args (apply minor-bg n args))))
+(define (content bg-fn)
+  (lambda (v f)
+    (define bg (bg-fn f))
+    (named-style (contrast-text bg) bg)))
+
+(define (arc fg-fn)
+  (lambda (v f)
+    (style-fg (style) (fg-fn f))))
+
+(define (arc2 fg-fn bg-fn)
+  (lambda (v f)
+    (~> (style) (style-fg (fg-fn f)) (style-bg (bg-fn f)))))
+
+;; Pre-curried minor levels
+(define minor-0.4 (lambda (f) (minor-bg 0.4 f)))
+(define minor-0.3 (lambda (f) (minor-bg 0.3 f)))
+(define minor-0.2 (lambda (f) (minor-bg 0.2 f)))
 
 ;; ── Statusline layout ────────────────────────────────────────────
-
-(provide statusline-init)
 
 (define (statusline-init)
   (bufferline "never")
@@ -41,20 +49,20 @@
     #:center (list 'primary-selection-length 'file-indent-style 'file-line-ending 'file-encoding
                    'read-only-indicator 'diagnostics 'workspace-diagnostics 'spinner)
     #:left (list
-      (left-arc-indicator #:fg major-bg)
-      (mode-indicator #:fg (auto-fg major-bg) #:bg major-bg)
-      (right-arc-indicator #:fg major-bg #:bg (m 0.4))
-      (version-control-indicator #:fg (a 0.4) #:bg (m 0.4))
-      (right-arc-indicator #:fg (m 0.4) #:bg (m 0.3))
-      (file-name-indicator #:fg (a 0.3) #:bg (m 0.3))
-      (right-arc-indicator #:fg (m 0.3)))
+      (left-arc-indicator #:style (arc major-bg))
+      (mode-indicator #:style (content major-bg))
+      (right-arc-indicator #:style (arc2 major-bg minor-0.4))
+      (version-control-indicator #:style (content minor-0.4))
+      (right-arc-indicator #:style (arc2 minor-0.4 minor-0.3))
+      (file-name-indicator #:style (content minor-0.3))
+      (right-arc-indicator #:style (arc minor-0.3)))
     #:right (list
-      (left-arc-indicator #:fg (m 0.2))
-      (selections-indicator #:fg (a 0.2) #:bg (m 0.2))
-      (left-arc-indicator #:fg (m 0.3) #:bg (m 0.2))
-      (position-indicator #:fg (a 0.3) #:bg (m 0.3))
-      (left-arc-indicator #:fg (m 0.4) #:bg (m 0.3))
-      (buffers-indicator #:fg (a 0.4) #:bg (m 0.4))
-      (left-arc-indicator #:fg major-bg #:bg (m 0.4))
-      (file-type-indicator #:fg (auto-fg major-bg) #:bg major-bg)
-      (right-arc-indicator #:fg major-bg))))
+      (left-arc-indicator #:style (arc minor-0.2))
+      (selections-indicator #:style (content minor-0.2))
+      (left-arc-indicator #:style (arc2 minor-0.3 minor-0.2))
+      (position-indicator #:style (content minor-0.3))
+      (left-arc-indicator #:style (arc2 minor-0.4 minor-0.3))
+      (buffers-indicator #:style (content minor-0.4))
+      (left-arc-indicator #:style (arc2 major-bg minor-0.4))
+      (file-type-indicator #:style (content major-bg))
+      (right-arc-indicator #:style (arc major-bg)))))

@@ -6,16 +6,14 @@
 
 (provide register-indicator)
 
-(define (register-indicator #:fg (fg-fn (lambda args Color/Reset))
-                             #:bg (bg-fn (lambda args Color/Reset)))
+(define (register-indicator #:style (style (lambda args (style))))
   (status-element
     (lambda (view-id focused?)
+      (define s (resolve-style style view-id focused?))
       (define reg (selected-register!))
-      (define bg (resolve-color bg-fn focused?))
-      (define fg (resolve-color fg-fn focused?))
       (if (and reg (not (equal? reg #\")))
           (list
-            (span " \"" (named-style fg bg))
-            (span (string reg) (named-style fg bg))
-            (span " " (named-style fg bg)))
+            (span " \"" s)
+            (span (string reg) s)
+            (span " " s))
           '()))))

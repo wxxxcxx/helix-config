@@ -69,14 +69,12 @@
 
 (provide version-control-indicator)
 
-(define (version-control-indicator #:fg (fg-fn (lambda args Color/Reset))
-                                    #:bg (bg-fn (lambda args Color/Reset)))
+(define (version-control-indicator #:style (style (lambda args (style))))
   (status-element
     (lambda (view-id focused?)
+      (define s (resolve-style style view-id focused?))
       (define doc-id (editor->doc-id view-id))
       (define path (editor-document->path doc-id))
-      (define bg (resolve-color bg-fn focused?))
-      (define fg (resolve-color fg-fn focused?))
       (if path
           (let ([dir (parent-dir path)])
             (unless (and *git-cache-dir* (string=? dir *git-cache-dir*))
@@ -85,23 +83,23 @@
                 (apply append
                   (list
                     (list
-                      (span "  " (named-style fg bg))
-                      (span *git-cache-branch* (named-style fg bg)))
+                      (span "  " s)
+                      (span *git-cache-branch* s))
                     (if (> *git-cache-staged* 0)
                         (list
-                          (span " +" (named-style fg bg))
-                          (span (number->string *git-cache-staged*) (named-style fg bg)))
+                          (span " +" s)
+                          (span (number->string *git-cache-staged*) s))
                         '())
                     (if (> *git-cache-unstaged* 0)
                         (list
-                          (span " ~" (named-style fg bg))
-                          (span (number->string *git-cache-unstaged*) (named-style fg bg)))
+                          (span " ~" s)
+                          (span (number->string *git-cache-unstaged*) s))
                         '())
                     (if (> *git-cache-untracked* 0)
                         (list
-                          (span " ?" (named-style fg bg))
-                          (span (number->string *git-cache-untracked*) (named-style fg bg)))
+                          (span " ?" s)
+                          (span (number->string *git-cache-untracked*) s))
                         '())
-                    (list (span " " (named-style fg bg)))))
-                '()))
+                    (list (span " " s))))
+              '()))
           '()))))

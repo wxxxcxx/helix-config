@@ -13,7 +13,7 @@
 (require "cogs/indicators/register.scm")
 (require "cogs/indicators/buffers.scm")
 
-(provide named-style resolve-color auto-fg
+(provide named-style resolve-color resolve-style auto-fg
          mode-style
          left-arc-indicator right-arc-indicator
          mode-indicator
