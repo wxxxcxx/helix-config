@@ -21,6 +21,11 @@
 ;; Synchronize after every smith-plugin declaration has been evaluated.
 (smith-init)
 
+;; ── Keybindings ─────────────────────────────────────────────────
+(require "cogs/file-tree.scm")
+(helix.keymaps.keymap (global)
+  (normal (space (e ":file-tree-toggle"))))
+
 ;; ── Input source switching ──────────────────────────────────────
 (require "cogs/input-source/input-source.scm")
 (input-source-init)
