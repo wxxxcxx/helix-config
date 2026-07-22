@@ -12,6 +12,9 @@
 (require "default.scm")
 (default-init)
 
+;; Rainbow brackets
+(rainbow-brackets #t)
+
 
 
 ;; Statusline config
