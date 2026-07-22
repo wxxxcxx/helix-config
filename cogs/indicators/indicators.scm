@@ -1,7 +1,6 @@
 ;; cogs/indicators.scm
 ;; Aggregator — requires and re-provides all indicator modules
 
-(require "cogs/indicators/core.scm")
 (require "cogs/indicators/left-arc.scm")
 (require "cogs/indicators/right-arc.scm")
 (require "cogs/indicators/mode.scm")
@@ -13,8 +12,7 @@
 (require "cogs/indicators/register.scm")
 (require "cogs/indicators/buffers.scm")
 
-(provide named-style resolve-color resolve-style auto-fg
-         mode-style
+(provide mode-style
          left-arc-indicator right-arc-indicator
          mode-indicator
          file-name-indicator version-control-indicator

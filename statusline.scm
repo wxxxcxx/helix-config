@@ -9,37 +9,42 @@
 
 (provide major-bg minor-bg text-color accent statusline-init)
 
-;; ── Base color functions ─────────────────────────────────────────
+(define (named-style fg bg)
+  (~> (style) (style-fg fg) (style-bg bg)))
 
-(define (major-bg focused?)
-  (define base (or (style->bg (mode-style)) (style->fg (mode-style))))
-  (if (and focused? (not (file-tree-focused?))) base (desaturate base 0.05)))
+;; ── Pure color thunks ────────────────────────────────────────────
 
-(define (minor-bg n focused?)
-  (darken (desaturate (major-bg focused?) 0.3) n))
+(define (major-bg)
+  (or (style->bg (mode-style)) (style->fg (mode-style))))
+
+(define (minor-bg n)
+  (darken (desaturate (major-bg) 0.3) n))
 
 (define (text-color) (string->color "#D8DEE9"))
 (define (accent) (string->color "#88C0D0"))
 
-;; ── Style factories (view-id focused?) -> Style ─────────────────
+;; ── Focus-aware color wrapper ────────────────────────────────────
 
-(define (content bg-fn)
+(define (maybe-gray thunk focused?)
+  (define base (thunk))
+  (if (and focused? (not (file-tree-focused?))) base (desaturate base 0.05)))
+
+;; ── Style factories (return (lambda (view-id focused?) Style)) ───
+
+(define (content-style color-thunk)
   (lambda (v f)
-    (define bg (bg-fn f))
+    (define bg (maybe-gray color-thunk f))
     (named-style (contrast-text bg) bg)))
 
-(define (arc fg-fn)
+(define (edge-style color-thunk)
   (lambda (v f)
-    (style-fg (style) (fg-fn f))))
+    (style-fg (style) (maybe-gray color-thunk f))))
 
-(define (arc2 fg-fn bg-fn)
+(define (link-style fg-thunk bg-thunk)
   (lambda (v f)
-    (~> (style) (style-fg (fg-fn f)) (style-bg (bg-fn f)))))
+    (~> (style) (style-fg (maybe-gray fg-thunk f)) (style-bg (maybe-gray bg-thunk f)))))
 
-;; Pre-curried minor levels
-(define minor-0.4 (lambda (f) (minor-bg 0.4 f)))
-(define minor-0.3 (lambda (f) (minor-bg 0.3 f)))
-(define minor-0.2 (lambda (f) (minor-bg 0.2 f)))
+(define (minor n) (lambda () (minor-bg n)))
 
 ;; ── Statusline layout ────────────────────────────────────────────
 
@@ -49,20 +54,20 @@
     #:center (list 'primary-selection-length 'file-indent-style 'file-line-ending 'file-encoding
                    'read-only-indicator 'diagnostics 'workspace-diagnostics 'spinner)
     #:left (list
-      (left-arc-indicator #:style (arc major-bg))
-      (mode-indicator #:style (content major-bg))
-      (right-arc-indicator #:style (arc2 major-bg minor-0.4))
-      (version-control-indicator #:style (content minor-0.4))
-      (right-arc-indicator #:style (arc2 minor-0.4 minor-0.3))
-      (file-name-indicator #:style (content minor-0.3))
-      (right-arc-indicator #:style (arc minor-0.3)))
+      (left-arc-indicator #:style (edge-style major-bg))
+      (mode-indicator #:style (content-style major-bg))
+      (right-arc-indicator #:style (link-style major-bg (minor 0.4)))
+      (version-control-indicator #:style (content-style (minor 0.4)))
+      (right-arc-indicator #:style (link-style (minor 0.4) (minor 0.3)))
+      (file-name-indicator #:style (content-style (minor 0.3)))
+      (right-arc-indicator #:style (edge-style (minor 0.3))))
     #:right (list
-      (left-arc-indicator #:style (arc minor-0.2))
-      (selections-indicator #:style (content minor-0.2))
-      (left-arc-indicator #:style (arc2 minor-0.3 minor-0.2))
-      (position-indicator #:style (content minor-0.3))
-      (left-arc-indicator #:style (arc2 minor-0.4 minor-0.3))
-      (buffers-indicator #:style (content minor-0.4))
-      (left-arc-indicator #:style (arc2 major-bg minor-0.4))
-      (file-type-indicator #:style (content major-bg))
-      (right-arc-indicator #:style (arc major-bg)))))
+      (left-arc-indicator #:style (edge-style (minor 0.2)))
+      (selections-indicator #:style (content-style (minor 0.2)))
+      (left-arc-indicator #:style (link-style (minor 0.3) (minor 0.2)))
+      (position-indicator #:style (content-style (minor 0.3)))
+      (left-arc-indicator #:style (link-style (minor 0.4) (minor 0.3)))
+      (buffers-indicator #:style (content-style (minor 0.4)))
+      (left-arc-indicator #:style (link-style major-bg (minor 0.4)))
+      (file-type-indicator #:style (content-style major-bg))
+      (right-arc-indicator #:style (edge-style major-bg)))))

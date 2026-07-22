@@ -4,7 +4,6 @@
 (require "helix/components.scm")
 (require "helix/editor.scm")
 (require "helix/misc.scm")
-(require "cogs/indicators/core.scm")
 
 (provide mode-style mode-indicator)
 
@@ -33,7 +32,7 @@
 (define (mode-indicator #:style (style (lambda args (style))))
   (status-element
     (lambda (view-id focused?)
-      (define s (resolve-style style view-id focused?))
+      (define s (if (procedure? style) (style view-id focused?) style))
       (list
-        (span (hash-ref mode-labels *current-mode*)
+        (span (if focused? (hash-ref mode-labels *current-mode*) "         ")
               (~> s style-with-bold))))))

@@ -2,7 +2,6 @@
 
 (require "helix/components.scm")
 (require "helix/editor.scm")
-(require "cogs/indicators/core.scm")
 (require (only-in "helix/themes.scm" string->color))
 
 (define (basename path)
@@ -20,7 +19,7 @@
 (define (file-name-indicator #:style (style (lambda args (style))))
   (status-element
     (lambda (view-id focused?)
-      (define s (resolve-style style view-id focused?))
+      (define s (if (procedure? style) (style view-id focused?) style))
       (define doc-id (editor->doc-id view-id))
       (define name
         (let ([path (editor-document->path doc-id)])
