@@ -5,8 +5,6 @@
 (require (only-in "helix/themes.scm" string->color))
 (require "cogs/indicators/indicators.scm")
 (require "cogs/color.scm")
-(require "cogs/file-tree.scm")
-
 (provide major-bg minor-bg text-color accent statusline-init)
 
 (define (named-style fg bg)
@@ -27,7 +25,7 @@
 
 (define (maybe-gray thunk focused?)
   (define base (thunk))
-  (if (and focused? (not (file-tree-focused?))) base (desaturate base 0.05)))
+  (if focused? base (desaturate base 0.05)))
 
 ;; ── Style factories (return (lambda (view-id focused?) Style)) ───
 
