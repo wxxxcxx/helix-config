@@ -2,7 +2,7 @@
 (require "helix/misc.scm")
 (require "helix/editor.scm")
 (require (prefix-in helix. "helix/commands.scm"))
-(require "cogs/glyph.scm")
+(require "cogs/glyph/glyph.scm")
 (require "cogs/file-colors.scm")
 
 (provide file-explorer-configure!
