@@ -12,16 +12,19 @@
 (define *git-cache-unstaged* 0)
 (define *git-cache-untracked* 0)
 
-(define (git-stats dir)
+(define (git-output dir args)
   (with-handler
-    (lambda (err) (list 0 0 0))
-    (let* ([proc (~> (command "git" (list "-C" dir "status" "--porcelain"))
+    (lambda (err) #f)
+    (let* ([proc (~> (command "git" (append (list "-C" dir) args))
                      with-stdout-piped
-                     spawn-process)]
-           [ok? (Ok? proc)])
-      (if ok?
-          (let* ([raw (read-port-to-string (child-stdout (Ok->value proc)))]
-                 [lines (filter (lambda (l) (> (string-length l) 0)) (split-many raw "\n"))])
+                     spawn-process)])
+      (and (Ok? proc)
+           (read-port-to-string (child-stdout (Ok->value proc)))))))
+
+(define (git-stats dir)
+  (let ([raw (git-output dir (list "status" "--porcelain"))])
+    (if raw
+        (let ([lines (filter (lambda (l) (> (string-length l) 0)) (split-many raw "\n"))])
             (let loop ([xs lines] [staged 0] [unstaged 0] [untracked 0])
               (if (null? xs)
                   (list staged unstaged untracked)
@@ -39,22 +42,15 @@
                        (loop (cdr xs) staged (+ unstaged 1) untracked)]
                       [else
                        (loop (cdr xs) staged unstaged untracked)])))))
-          (list 0 0 0)))))
+        (list 0 0 0))))
 
 (define (git-refresh! dir)
   (set! *git-cache-dir* dir)
   (set! *git-cache-branch*
-    (with-handler
-      (lambda (err) #f)
-      (let* ([proc (~> (command "git" (list "-C" dir "rev-parse" "--abbrev-ref" "HEAD"))
-                       with-stdout-piped
-                       spawn-process)]
-             [ok? (Ok? proc)])
-        (and ok?
-             (let ([raw (read-port-to-string (child-stdout (Ok->value proc)))])
-               (and (string? raw)
-                    (let ([t (trim raw)])
-                      (and (not (string=? t "")) t))))))))
+    (let ([raw (git-output dir (list "rev-parse" "--abbrev-ref" "HEAD"))])
+      (and raw
+           (let ([branch (trim raw)])
+             (and (not (string=? branch "")) branch)))))
   (define stats (git-stats dir))
   (set! *git-cache-staged* (car stats))
   (set! *git-cache-unstaged* (cadr stats))
