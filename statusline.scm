@@ -10,7 +10,7 @@
   (bufferline "never")
   (version-control-init)
   (statusline
-    #:center (list 'primary-selection-length 'file-indent-style 'file-line-ending 'file-encoding
+    #:center (list 'file-indent-style 'file-line-ending 'file-encoding
                    'read-only-indicator 'diagnostics 'workspace-diagnostics 'spinner)
     #:left (list
       (mode-indicator #:fg (contrast-bg major-bg) #:bg major-bg

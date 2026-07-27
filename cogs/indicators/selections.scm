@@ -7,7 +7,7 @@
 (provide selections-indicator)
 
 (define (selections-indicator #:fg (fg #f) #:bg (bg #f)
-                             #:placeholder (placeholder " 󰕢 1 ")
+                             #:placeholder (placeholder " 󰕢 1 󰗧 0 ")
                              #:left-separator? (left-separator? #f) #:left-separator-fg (left-separator-fg #f) #:left-separator-bg (left-separator-bg #f)
                              #:left-separator-char (left-separator-char "")
                              #:right-separator? (right-separator? #f) #:right-separator-fg (right-separator-fg #f) #:right-separator-bg (right-separator-bg #f)
@@ -16,13 +16,14 @@
     (lambda (view-id focused? s)
       (if focused?
           (let* ([sel (current-selection-object)]
-                 [count (length (selection->ranges sel))])
-            (if (> count 1)
-                (list
-                  (span " 󰕢 " s)
-                  (span (number->string count) s)
-                  (span " " s))
-                '()))
+                 [count (length (selection->ranges sel))]
+                 [primary (selection->primary-range sel)]
+                 [length (- (range->to primary) (range->from primary))])
+            (list
+              (span " 󰕢 " s)
+              (span (number->string count) s)
+              (span " 󰗧 " s)
+              (span (string-append (number->string length) " ") s)))
           '()))
     #:fg fg #:bg bg #:placeholder placeholder
     #:left-separator? left-separator? #:left-separator-fg left-separator-fg #:left-separator-bg left-separator-bg #:left-separator-char left-separator-char
