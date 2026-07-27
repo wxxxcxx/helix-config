@@ -1,6 +1,7 @@
 (require "helix/components.scm")
 (require "helix/misc.scm")
 (require "helix/editor.scm")
+(require (only-in "helix/static.scm" cx->current-file))
 (require (prefix-in helix. "helix/commands.scm"))
 (require "cogs/glyph/glyph.scm")
 (require "cogs/file-colors.scm")
@@ -20,11 +21,9 @@
               "down"     '("j" "down")
               "parent"   "h"
               "open"     '("l" "enter")
-              "preview"  "l"
               "quit"     '("q" "escape")
               "toggle-hidden" "."
-              "refresh"  "R"
-              "next-col" "tab")))
+              "refresh"  "R")))
 
 (define (file-explorer-configure!
          #:key [keybindings #f]
@@ -48,15 +47,13 @@
 (define *fe-path* "")
 (define *fe-parent-files* '())
 (define *fe-files* '())
-(define *fe-cursor-col* 1)
 (define *fe-cursor-row* 0)
-(define *fe-col-scroll* (vector 0 0 0))
+(define *fe-col-scroll* (vector 0 0))
 (define *fe-show-hidden* #f)
-(define *fe-width* 0)
-(define *fe-height* 0)
 (define *fe-content-h* 0)
 (define *fe-parent-cursor* 0)
 (define *fe-scrolls* (hash))
+(define *fe-parent-scrolls* (hash))
 
 ;; ── List helpers (Steel may not have take/drop built-in) ───────
 
@@ -144,6 +141,12 @@
     [else
      (list (string-append "  [" (fe-format-size path) "]" ))]))
 
+(define (fe-fit-text text width)
+  (cond [(<= width 0) ""]
+        [(<= (string-length text) width) text]
+        [(= width 1) "…"]
+        [else (string-append (substring text 0 (- width 1)) "…")]))
+
 ;; ── Layout ─────────────────────────────────────────────────────
 
 (define (fe-calc-layout w h)
@@ -214,7 +217,8 @@
           (buffer/clear-with frame (area box-x box-y box-w box-h) bg-style)
 
           ;; Top border:  ╭─ path ───────────╮
-          (let* ([title (string-append BORDER-TL BORDER-H " " *fe-path* " ")]
+          (let* ([path-title (fe-fit-text *fe-path* (max 0 (- box-w 5)))]
+                 [title (string-append BORDER-TL BORDER-H " " path-title " ")]
                  [title-len (string-length title)]
                  [fill-len (- box-w title-len 1)])
             (frame-set-string! frame box-x box-y title border-style)
@@ -241,13 +245,11 @@
           ;; ── Render each column ──
 
           (letrec ([render-col
-                     (lambda (col-x col-w files cursor-col cursor-pos scroll)
+                     (lambda (col-x col-w files selected-row scroll)
                        (do [(i 0 (+ i 1))] [(>= i content-h)]
                          (let* ([file-idx (+ scroll i)]
                                 [row-y (+ content-y i)]
-                                [cursor? (if (= cursor-col 0)
-                                             (= cursor-pos file-idx)
-                                             (and (= *fe-cursor-col* cursor-col) (= *fe-cursor-row* file-idx)))]
+                                [selected? (= selected-row file-idx)]
                                [entry (if (< file-idx (length files)) (list-ref files file-idx) #f)])
                           (cond
                             [(and entry (is-dir? entry))
@@ -255,10 +257,10 @@
                                      [display (if (> (string-length name) (- col-w 4))
                                                   (string-append (substring name 0 (- col-w 7)) "…")
                                                   name)])
-                                (when cursor?
+                                (when selected?
                                   (frame-set-string! frame col-x row-y (make-string col-w #\space) hl-style))
-                                (frame-set-string! frame col-x row-y (string-append (glyph-dir-closed) " ") (if cursor? hl-style dir-style))
-                                (frame-set-string! frame (+ col-x 2) row-y display (if cursor? hl-style dir-style)))]
+                                (frame-set-string! frame col-x row-y (string-append (glyph-dir-closed) " ") (if selected? hl-style dir-style))
+                                (frame-set-string! frame (+ col-x 2) row-y display (if selected? hl-style dir-style)))]
                              [entry
                               (let* ([name (fe-base-name entry)]
                                      [display (if (> (string-length name) (- col-w 4))
@@ -267,15 +269,16 @@
                                     [icon (glyph-icon name)]
                                     [icon-str (string-append icon " ")]
                                     [icon-color (style-fg (style) (glyph-hex->color (file-color name)))]
-                                    [icon-style (if cursor? hl-style icon-color)])
-                               (when cursor?
+                                    [icon-style (if selected? hl-style icon-color)])
+                               (when selected?
                                  (frame-set-string! frame col-x row-y (make-string col-w #\space) hl-style))
                                (frame-set-string! frame col-x row-y icon-str icon-style)
-                               (frame-set-string! frame (+ col-x (string-length icon-str)) row-y display (if cursor? hl-style text-style)))]
+                               (frame-set-string! frame (+ col-x (string-length icon-str)) row-y display (if selected? hl-style text-style)))]
                             [else
                              (frame-set-string! frame col-x row-y (make-string col-w #\space) bg-style)]))))])
-            (render-col (+ box-x 1) lw *fe-parent-files* 0 *fe-parent-cursor* (vector-ref *fe-col-scroll* 0))
-            (render-col (+ sep-x1 1) mw *fe-files* 1 *fe-cursor-row* (vector-ref *fe-col-scroll* 1)))
+            ;; The left list always identifies the directory shown in the middle.
+            (render-col (+ box-x 1) lw *fe-parent-files* *fe-parent-cursor* (vector-ref *fe-col-scroll* 0))
+            (render-col (+ sep-x1 1) mw *fe-files* *fe-cursor-row* (vector-ref *fe-col-scroll* 1)))
 
           ;; ── Right column: preview ──
           (let ([preview-path
@@ -339,22 +342,41 @@
 
 ;; ── Event handling ─────────────────────────────────────────────
 
-(define (fe-clamp-cursor)
-  (define files (if (= *fe-cursor-col* 1) *fe-files* *fe-parent-files*))
-  (when (>= *fe-cursor-row* (length files))
-    (set! *fe-cursor-row* (max 0 (- (length files) 1)))))
-
-(define (fe-parent-idx)
-  (define dir-name (fe-base-name *fe-path*))
+(define (fe-entry-index entries name)
   (define (search lst i)
     (cond [(null? lst) 0]
-          [(equal? dir-name (fe-base-name (car lst))) i]
+          [(equal? name (fe-base-name (car lst))) i]
           [else (search (cdr lst) (+ i 1))]))
-  (search *fe-parent-files* 0))
+  (search entries 0))
+
+(define (fe-path-index entries path)
+  (define (search lst i)
+    (cond [(null? lst) #f]
+          [(equal? path (car lst)) i]
+          [else (search (cdr lst) (+ i 1))]))
+  (search entries 0))
+
+(define (fe-parent-idx)
+  (fe-entry-index *fe-parent-files* (fe-base-name *fe-path*)))
+
+(define (fe-scrolloff)
+  (define configured (with-handler (lambda (_) 3) (car (helix.get-option '(scrolloff)))))
+  (min (max configured 0) (quotient (max 0 (- *fe-content-h* 1)) 2)))
+
+(define (fe-scroll-to-visible scroll row count)
+  (define height (max 1 *fe-content-h*))
+  (define max-scroll (max 0 (- count height)))
+  (define current-scroll (min (max 0 scroll) max-scroll))
+  (define offset (fe-scrolloff))
+  (define top (+ current-scroll offset))
+  (define bottom (- (+ current-scroll height) offset 1))
+  (cond [(< row top) (max 0 (- row offset))]
+        [(> row bottom) (min max-scroll (max 0 (- row (- height offset 1))))]
+        [else current-scroll]))
 
 (define (fe-save-scrolls!)
   (set! *fe-scrolls* (hash-insert *fe-scrolls* *fe-path* (cons (vector-ref *fe-col-scroll* 1) *fe-cursor-row*)))
-  (set! *fe-scrolls* (hash-insert *fe-scrolls* (string-append *fe-path* "/parent") (vector-ref *fe-col-scroll* 0))))
+  (set! *fe-parent-scrolls* (hash-insert *fe-parent-scrolls* *fe-path* (vector-ref *fe-col-scroll* 0))))
 
 (define (fe-load-scroll dir)
   (define saved (hash-try-get *fe-scrolls* dir))
@@ -364,36 +386,46 @@
   (define saved (hash-try-get *fe-scrolls* dir))
   (if (pair? saved) (cdr saved) 0))
 
+(define (fe-load-parent-scroll dir)
+  (or (hash-try-get *fe-parent-scrolls* dir) 0))
+
+(define (fe-load-directory! dir)
+  (set! *fe-path* dir)
+  (set! *fe-parent-files* (fe-read-dir-names (fe-parent-dir dir)))
+  (set! *fe-files* (fe-read-dir-names dir))
+  (set! *fe-parent-cursor* (fe-parent-idx))
+  (set! *fe-cursor-row*
+        (min (fe-load-cursor dir) (max 0 (- (length *fe-files*) 1))))
+  (set! *fe-col-scroll*
+        (vector (fe-scroll-to-visible (fe-load-parent-scroll dir)
+                                      *fe-parent-cursor*
+                                      (length *fe-parent-files*))
+                (fe-scroll-to-visible (fe-load-scroll dir)
+                                      *fe-cursor-row*
+                                      (length *fe-files*)))))
+
 (define (fe-enter-dir dir)
   (let ([old-path *fe-path*])
     (when (and (not (equal? dir old-path)) (> (string-length old-path) 0))
       (fe-save-scrolls!)))
-  (set! *fe-path* dir)
-  (set! *fe-parent-files* (fe-read-dir-names (fe-parent-dir *fe-path*)))
-  (set! *fe-files* (fe-read-dir-names *fe-path*))
-  (set! *fe-parent-cursor* (fe-parent-idx))
-  (set! *fe-cursor-col* 1)
-  (define saved-row (fe-load-cursor dir))
-  (set! *fe-cursor-row* (min saved-row (max 0 (- (length *fe-files*) 1))))
-  (define soff (with-handler (lambda (_) 3) (car (helix.get-option '(scrolloff)))))
-  (define m-scroll (fe-load-scroll dir))
-  (define parent-path (fe-parent-dir *fe-path*))
-  (define p-scroll (fe-load-scroll parent-path))
-  (when (and (= p-scroll 0) (not (hash-contains? *fe-scrolls* parent-path)))
-    (set! p-scroll (max 0 (- *fe-parent-cursor* soff))))
-  ;; Ensure cursor is visible in scroll
-  (when (< *fe-cursor-row* (+ m-scroll soff))
-    (set! m-scroll (max 0 (- *fe-cursor-row* soff))))
-  (when (> *fe-cursor-row* (- (+ m-scroll *fe-content-h*) soff 1))
-    (set! m-scroll (max 0 (- *fe-cursor-row* (- *fe-content-h* soff 1)))))
-  (set! *fe-col-scroll* (vector p-scroll m-scroll 0)))
+  (fe-load-directory! dir))
+
+(define (fe-current-entry)
+  (if (< *fe-cursor-row* (length *fe-files*))
+      (list-ref *fe-files* *fe-cursor-row*)
+      #f))
+
+(define (fe-select-entry! path)
+  (define index (fe-path-index *fe-files* path))
+  (when index
+    (set! *fe-cursor-row* index)
+    (vector-set! *fe-col-scroll* 1
+                 (fe-scroll-to-visible (vector-ref *fe-col-scroll* 1)
+                                       index
+                                       (length *fe-files*)))))
 
 (define (fe-do-open)
-  (define cursor-row (if (= *fe-cursor-col* 0) *fe-parent-cursor* *fe-cursor-row*))
-  (define files (if (= *fe-cursor-col* 0) *fe-parent-files* *fe-files*))
-  (define entry (if (< cursor-row (length files))
-                    (list-ref files cursor-row)
-                    #f))
+  (define entry (fe-current-entry))
   (cond
     [(not entry) event-result/consume]
     [(is-dir? entry) (fe-enter-dir entry) event-result/consume]
@@ -404,91 +436,56 @@
     [else event-result/consume]))
 
 (define (fe-do-parent)
-  (cond
-    ((or (= *fe-cursor-col* 0) (= *fe-cursor-col* 1))
-     (let ([parent (fe-parent-dir *fe-path*)])
-       (if (equal? parent *fe-path*)
-           event-result/consume
-           (let ([prev-name (fe-base-name *fe-path*)])
-             (fe-save-scrolls!)
-             (fe-enter-dir parent)
-             (letrec ([search
-                       (lambda (lst i)
-                         (cond ((null? lst) 0)
-                               ((equal? prev-name (fe-base-name (car lst))) i)
-                               (else (search (cdr lst) (+ i 1)))))])
-               (set! *fe-cursor-row* (search *fe-files* 0))
-               (vector-set! *fe-col-scroll* 1 (fe-load-scroll *fe-path*))
-                event-result/consume)))))
-    (else
-     (set! *fe-cursor-col* 1)
-     (set! *fe-cursor-row* 0)
-     event-result/consume)))
+  (define parent (fe-parent-dir *fe-path*))
+  (if (equal? parent *fe-path*)
+      event-result/consume
+      (let ([child-name (fe-base-name *fe-path*)])
+        (fe-enter-dir parent)
+        (set! *fe-cursor-row* (fe-entry-index *fe-files* child-name))
+        (vector-set! *fe-col-scroll* 1
+                     (fe-scroll-to-visible (vector-ref *fe-col-scroll* 1)
+                                           *fe-cursor-row*
+                                           (length *fe-files*)))
+        event-result/consume)))
 
-(define (fe-do-preview)
-  (cond
-    [(= *fe-cursor-col* 0)
-     (define entry (if (< *fe-parent-cursor* (length *fe-parent-files*))
-                       (list-ref *fe-parent-files* *fe-parent-cursor*)
-                       #f))
-     (when (and entry (is-dir? entry))
-       (fe-enter-dir entry))]
-    [(= *fe-cursor-col* 1) (set! *fe-cursor-col* 2)]
-    [(= *fe-cursor-col* 2) (set! *fe-cursor-col* 1)])
-  event-result/consume)
-
-(define (fe-move-down files cur scroll-col)
-  (define max-idx (max 0 (- (length files) 1)))
-  (if (< cur max-idx)
-       (let ([new-cur (+ cur 1)]
-             [scroll (vector-ref *fe-col-scroll* scroll-col)]
-             [soff (with-handler (lambda (_) 3) (car (helix.get-option '(scrolloff))))])
-        (define bottom (- (+ scroll *fe-content-h*) soff 1))
-        (when (> new-cur bottom)
-          (vector-set! *fe-col-scroll* scroll-col (+ scroll 1)))
-        new-cur)
-      cur))
-
-(define (fe-move-up files cur scroll-col)
-  (if (> cur 0)
-       (let ([new-cur (- cur 1)]
-             [scroll (vector-ref *fe-col-scroll* scroll-col)]
-             [soff (with-handler (lambda (_) 3) (car (helix.get-option '(scrolloff))))])
-        (when (< new-cur (+ scroll soff))
-          (vector-set! *fe-col-scroll* scroll-col (max 0 (- scroll 1))))
-        new-cur)
-      cur))
+(define (fe-move-selection delta)
+  (define max-index (max 0 (- (length *fe-files*) 1)))
+  (define next (min max-index (max 0 (+ *fe-cursor-row* delta))))
+  (set! *fe-cursor-row* next)
+  (vector-set! *fe-col-scroll* 1
+               (fe-scroll-to-visible (vector-ref *fe-col-scroll* 1)
+                                     next
+                                     (length *fe-files*))))
 
 (define (fe-do-down)
-  (if (= *fe-cursor-col* 0)
-      (set! *fe-parent-cursor* (fe-move-down *fe-parent-files* *fe-parent-cursor* 0))
-      (set! *fe-cursor-row* (fe-move-down *fe-files* *fe-cursor-row* 1)))
+  (fe-move-selection 1)
   event-result/consume)
 
 (define (fe-do-up)
-  (if (= *fe-cursor-col* 0)
-      (set! *fe-parent-cursor* (fe-move-up *fe-parent-files* *fe-parent-cursor* 0))
-      (set! *fe-cursor-row* (fe-move-up *fe-files* *fe-cursor-row* 1)))
+  (fe-move-selection -1)
   event-result/consume)
 
-(define (fe-do-next-col)
-  (set! *fe-cursor-col* (modulo (+ *fe-cursor-col* 1) 3))
-  (set! *fe-cursor-row* 0)
-  event-result/consume)
+(define (fe-reload!)
+  (set! *fe-parent-files* (fe-read-dir-names (fe-parent-dir *fe-path*)))
+  (set! *fe-files* (fe-read-dir-names *fe-path*))
+  (set! *fe-parent-cursor* (fe-parent-idx))
+  (set! *fe-cursor-row* (min *fe-cursor-row* (max 0 (- (length *fe-files*) 1))))
+  (vector-set! *fe-col-scroll* 0
+               (fe-scroll-to-visible (vector-ref *fe-col-scroll* 0)
+                                     *fe-parent-cursor*
+                                     (length *fe-parent-files*)))
+  (vector-set! *fe-col-scroll* 1
+               (fe-scroll-to-visible (vector-ref *fe-col-scroll* 1)
+                                     *fe-cursor-row*
+                                     (length *fe-files*))))
 
 (define (fe-do-toggle-hidden)
   (set! *fe-show-hidden* (not *fe-show-hidden*))
-  (set! *fe-parent-files* (fe-read-dir-names (fe-parent-dir *fe-path*)))
-  (set! *fe-files* (fe-read-dir-names *fe-path*))
-  (set! *fe-cursor-row* 0)
-  (set! *fe-col-scroll* (vector 0 0 0))
+  (fe-reload!)
   event-result/consume)
 
 (define (fe-do-refresh)
-  (set! *fe-parent-files* (fe-read-dir-names (fe-parent-dir *fe-path*)))
-  (set! *fe-files* (fe-read-dir-names *fe-path*))
-  (set! *fe-cursor-row* 0)
-  (set! *fe-col-scroll* (vector 0 0 0))
+  (fe-reload!)
   event-result/consume)
 
 (define (fe-handle-event state event)
@@ -498,8 +495,6 @@
     [(fe-match? "up" event)    (fe-do-up)]
     [(fe-match? "open" event)  (fe-do-open)]
     [(fe-match? "parent" event) (fe-do-parent)]
-    [(fe-match? "preview" event) (fe-do-preview)]
-    [(fe-match? "next-col" event) (fe-do-next-col)]
     [(fe-match? "toggle-hidden" event) (fe-do-toggle-hidden)]
     [(fe-match? "refresh" event) (fe-do-refresh)]
     [else event-result/consume]))
@@ -509,20 +504,11 @@
 (define (file-explorer-open)
   (when *fe-active* (file-explorer-close))
   (set! *fe-active* #t)
-  (set! *fe-path* (helix-find-workspace))
-  (set! *fe-parent-files* (fe-read-dir-names (fe-parent-dir *fe-path*)))
-  (set! *fe-files* (fe-read-dir-names *fe-path*))
-  (set! *fe-parent-cursor* (fe-parent-idx))
-  (set! *fe-cursor-col* 1)
-  (define saved-row (fe-load-cursor *fe-path*))
-  (set! *fe-cursor-row* (min saved-row (max 0 (- (length *fe-files*) 1))))
-  (define m-scroll (fe-load-scroll *fe-path*))
-  (define parent-path (fe-parent-dir *fe-path*))
-  (define p-scroll (fe-load-scroll parent-path))
-  (define soff (with-handler (lambda (_) 3) (car (helix.get-option '(scrolloff)))))
-  (when (and (= p-scroll 0) (not (hash-contains? *fe-scrolls* parent-path)))
-    (set! p-scroll (max 0 (- *fe-parent-cursor* soff))))
-  (set! *fe-col-scroll* (vector p-scroll m-scroll 0))
+  (define current-file (with-handler (lambda (_) #f) (cx->current-file)))
+  (fe-load-directory! (if current-file
+                          (fe-parent-dir current-file)
+                          (helix-find-workspace)))
+  (when current-file (fe-select-entry! current-file))
   (push-component! (new-component! "file-explorer"
                                     (hash)
                                     fe-render
