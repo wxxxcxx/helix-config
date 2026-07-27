@@ -4,6 +4,8 @@
 (require (only-in "helix/static.scm" cx->current-file))
 (require (prefix-in helix. "helix/commands.scm"))
 (require "cogs/file-explorer/config.scm")
+(require "cogs/file-explorer/bookmarks.scm")
+(require "cogs/file-explorer/bookmarks-view.scm")
 (require "cogs/file-explorer/files.scm")
 (require "cogs/file-explorer/modal.scm")
 (require "cogs/file-explorer/render.scm")
@@ -35,6 +37,7 @@
 (define *fe-sort-reverse?* #f)
 (define *fe-pending-action* #f)
 (define *fe-copy-register* #\+)
+(define *fe-bookmarks* '())
 
 ;; The renderer only reads this snapshot and reports its usable height.
 (define (fe-state-ref key)
@@ -52,6 +55,7 @@
         [(equal? key 'filtering?) (equal? *fe-pending-action* 'filter)]
         [(equal? key 'sort-mode) *fe-sort-mode*]
         [(equal? key 'sort-reverse?) *fe-sort-reverse?*]
+        [(equal? key 'bookmarks) *fe-bookmarks*]
         [else #f]))
 
 (define (fe-state-set! key value)
@@ -90,7 +94,7 @@
 (define (fe-entry-index entries name)
   (let loop ([items entries] [index 0])
     (cond [(null? items) 0]
-          [(string=? (fe-base-name (car items)) name) index]
+          [(string=? (fe-entry-label (car items)) name) index]
           [else (loop (cdr items) (+ index 1))])))
 
 (define (fe-path-index entries path)
@@ -100,7 +104,7 @@
           [else (loop (cdr items) (+ index 1))])))
 
 (define (fe-parent-idx)
-  (fe-entry-index *fe-parent-files* (fe-base-name *fe-path*)))
+  (fe-entry-index *fe-parent-files* (fe-entry-label *fe-path*)))
 
 (define (fe-scrolloff)
   (define configured (with-handler (lambda (_) 3) (car (helix.get-option '(scrolloff)))))
@@ -156,7 +160,10 @@
 
 (define (fe-load-directory! dir)
   (set! *fe-path* dir)
-  (set! *fe-all-parent-files* (fe-read-dir-names (fe-parent-dir dir) (fe-show-hidden?)))
+  (set! *fe-all-parent-files*
+        (if (fe-windows-drives-root? dir)
+            '()
+            (fe-read-dir-names (fe-parent-dir dir) (fe-show-hidden?))))
   (set! *fe-all-files* (fe-read-dir-names dir (fe-show-hidden?)))
   (fe-rebuild-visible-files!)
   (set! *fe-parent-cursor* (fe-parent-idx))
@@ -196,14 +203,21 @@
 
 (define (fe-do-parent)
   (define parent (fe-parent-dir *fe-path*))
-  (if (equal? parent *fe-path*)
-      event-result/consume
-      (let ([child-name (fe-base-name *fe-path*)])
-        (fe-enter-dir parent)
-        (set! *fe-cursor-row* (fe-entry-index *fe-files* child-name))
-        (vector-set! *fe-col-scroll* 1
-                     (fe-scroll-to-visible (vector-ref *fe-col-scroll* 1) *fe-cursor-row* (length *fe-files*)))
-        event-result/consume)))
+  (cond
+    [(fe-windows-drive-root? *fe-path*)
+     (fe-enter-dir "")
+     event-result/consume]
+    [(or (fe-windows-drives-root? *fe-path*)
+         (string=? parent "")
+         (equal? parent *fe-path*))
+     event-result/consume]
+    [else
+     (let ([child-name (fe-entry-label *fe-path*)])
+       (fe-enter-dir parent)
+       (set! *fe-cursor-row* (fe-entry-index *fe-files* child-name))
+       (vector-set! *fe-col-scroll* 1
+                    (fe-scroll-to-visible (vector-ref *fe-col-scroll* 1) *fe-cursor-row* (length *fe-files*)))
+       event-result/consume)]))
 
 (define (fe-move-selection delta)
   (define max-index (max 0 (- (length *fe-files*) 1)))
@@ -332,6 +346,51 @@
   (set-warning! "sort: a=name, e=extension, s=size; uppercase reverses")
   event-result/consume)
 
+;; ── Persistent bookmarks ──────────────────────────────────────
+
+(define (fe-bookmark-target)
+  (or (fe-current-entry) *fe-path*))
+
+(define (fe-bookmark-save!)
+  (with-handler
+    (lambda (err)
+      (set-warning! (string-append "bookmark save failed: " (error-object-message err))))
+    (fe-bookmarks-save! *fe-bookmarks*)))
+
+(define (fe-prune-bookmarks!)
+  (define pruned (fe-bookmark-prune *fe-bookmarks*))
+  (unless (= (length pruned) (length *fe-bookmarks*))
+    (set! *fe-bookmarks* pruned)
+    (fe-bookmark-save!)))
+
+(define (fe-jump-to-bookmark! path)
+  (cond
+    [(not (path-exists? path))
+     #f]
+    [else
+     (define parent (fe-parent-dir path))
+     (fe-enter-dir parent)
+     (unless (string=? parent path)
+       (fe-select-entry! path))
+     #t]))
+
+(define (fe-set-bookmark! key path)
+  (set! *fe-bookmarks* (fe-bookmark-set *fe-bookmarks* key path))
+  (fe-bookmark-save!))
+
+(define (fe-remove-bookmark! key)
+  (set! *fe-bookmarks* (fe-bookmark-remove *fe-bookmarks* key))
+  (fe-bookmark-save!))
+
+(define (fe-do-bookmarks)
+  (fe-prune-bookmarks!)
+  (fe-bookmarks-view! *fe-bookmarks*
+                      (fe-bookmark-target)
+                      fe-jump-to-bookmark!
+                      fe-set-bookmark!
+                      fe-remove-bookmark!)
+  event-result/consume)
+
 ;; ── Selection and filesystem operations ────────────────────────
 
 (define (fe-member? value values)
@@ -386,7 +445,9 @@
 
 (define (fe-reconcile-renamed-path! old-path new-path)
   (set! *fe-marked* (fe-replace old-path new-path *fe-marked*))
-  (set! *fe-clipboard* (fe-replace old-path new-path *fe-clipboard*)))
+  (set! *fe-clipboard* (fe-replace old-path new-path *fe-clipboard*))
+  (set! *fe-bookmarks* (fe-bookmark-replace *fe-bookmarks* old-path new-path))
+  (fe-bookmark-save!))
 
 (define (fe-stage-operation! mode)
   (define paths (fe-operation-targets))
@@ -524,6 +585,7 @@
                         (for-each fe-trash-path! paths)
                         (set! *fe-marked* '())
                         (fe-remove-yanked-paths! paths)
+                        (fe-prune-bookmarks!)
                         (fe-reload!)))))))
   event-result/consume)
 
@@ -539,6 +601,7 @@
                         (for-each (lambda (path) (fe-run! "rm" (list "-rf" "--" path))) paths)
                         (set! *fe-marked* '())
                         (fe-remove-yanked-paths! paths)
+                        (fe-prune-bookmarks!)
                         (fe-reload!)))))))
   event-result/consume)
 
@@ -570,6 +633,7 @@
     [(fe-match? "copy" event) (fe-do-copy)]
     [(fe-match? "copy-value" event) (fe-do-copy-value)]
     [(fe-match? "copy-register" event) (fe-do-copy-register)]
+    [(fe-match? "bookmarks" event) (fe-do-bookmarks)]
     [(fe-match? "move" event) (fe-do-move)]
     [(fe-match? "paste" event) (fe-do-paste)]
     [(fe-match? "paste-force" event) (fe-do-paste-force)]
@@ -596,6 +660,8 @@
   (set! *fe-find-query* "")
   (set! *fe-pending-action* #f)
   (set! *fe-copy-register* #\+)
+  (set! *fe-bookmarks* (fe-bookmarks-load))
+  (fe-prune-bookmarks!)
   (define current-file (with-handler (lambda (_) #f) (cx->current-file)))
   (fe-load-directory! (if current-file (fe-parent-dir current-file) (helix-find-workspace)))
   (when current-file (fe-select-entry! current-file))

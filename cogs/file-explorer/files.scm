@@ -1,7 +1,9 @@
 (require "helix/misc.scm")
 
 (provide fe-take fe-drop
-         fe-base-name fe-parent-dir fe-read-dir-names fe-filter-entries fe-sort-entries fe-format-size
+         fe-base-name fe-entry-label fe-path-label fe-parent-dir fe-read-dir-names
+         fe-windows-drive-root? fe-windows-drives-root?
+         fe-filter-entries fe-sort-entries fe-format-size
          fe-file-ext fe-is-text-ext? fe-read-preview fe-preview-footer fe-clear-preview-footer-cache!
          fe-display-width fe-fit-text
          fe-calc-layout fe-calc-col-widths
@@ -17,6 +19,26 @@
 (define (fe-base-name path) (file-name path))
 (define (fe-parent-dir path) (parent-name path))
 
+(define (fe-windows-drives-root? path)
+  (and (equal? (current-os!) "windows") (string=? path "")))
+
+(define (fe-windows-drive-root? path)
+  (and (equal? (current-os!) "windows")
+       (>= (string-length path) 2)
+       (char=? (string-ref path 1) #\:)
+       (or (= (string-length path) 2)
+           (and (= (string-length path) 3)
+                (or (char=? (string-ref path 2) #\\)
+                    (char=? (string-ref path 2) #\/))))))
+
+(define (fe-entry-label path)
+  (if (fe-windows-drive-root? path)
+      (substring path 0 2)
+      (fe-base-name path)))
+
+(define (fe-path-label path)
+  (if (fe-windows-drives-root? path) "Drives" path))
+
 (define (fe-read-dir path)
   (with-handler (lambda (_) '()) (read-dir path)))
 
@@ -28,6 +50,17 @@
     (let ([proc (~> (command program args) with-stdout-piped spawn-process)])
       (and (Ok? proc)
            (trim (read-port-to-string (child-stdout (Ok->value proc))))))))
+
+(define (fe-windows-drive-paths)
+  (define output
+    (fe-capture-output
+      "powershell.exe"
+      (list "-NoProfile" "-Command"
+            "Get-PSDrive -PSProvider FileSystem | ForEach-Object { $_.Root }")))
+  (if output
+      (filter (lambda (path) (not (string=? path "")))
+              (map trim (split-many output "\n")))
+      '()))
 
 (define (fe-nonempty-strings values)
   (filter (lambda (value) (not (string=? value ""))) values))
@@ -76,10 +109,12 @@
   (append dirs files))
 
 (define (fe-read-dir-names path show-hidden?)
-  (define entries (fe-read-dir path))
+  (define entries (if (fe-windows-drives-root? path)
+                      (fe-windows-drive-paths)
+                      (fe-read-dir path)))
   (fe-sort-files
     (filter (lambda (p)
-              (let ([name (fe-base-name p)])
+              (let ([name (fe-entry-label p)])
                 (or show-hidden? (not (fe-dotfile? name)))))
             entries)))
 
@@ -88,7 +123,7 @@
       entries
       (let ([needle (string-downcase query)])
         (filter (lambda (path)
-                  (string-contains? (string-downcase (fe-base-name path)) needle))
+                  (string-contains? (string-downcase (fe-entry-label path)) needle))
                 entries))))
 
 (define (fe-entry-size path)
@@ -116,14 +151,14 @@
           [(equal? mode 'extension)
            (let ([left-ext (fe-file-ext left)] [right-ext (fe-file-ext right)])
              (if (string=? left-ext right-ext)
-                 (compare-text (fe-base-name left) (fe-base-name right))
+                 (compare-text (fe-entry-label left) (fe-entry-label right))
                  (compare-text left-ext right-ext)))]
           [(equal? mode 'size)
            (let ([left-size (hash-get sizes left)] [right-size (hash-get sizes right)])
              (if (= left-size right-size)
-                 (compare-text (fe-base-name left) (fe-base-name right))
+                 (compare-text (fe-entry-label left) (fe-entry-label right))
                  (compare-size left-size right-size)))]
-          [else (compare-text (fe-base-name left) (fe-base-name right))]))
+          [else (compare-text (fe-entry-label left) (fe-entry-label right))]))
   (sort entries compare-files))
 
 (define (fe-format-size path)

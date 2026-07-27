@@ -13,6 +13,7 @@
               "copy"        "y"
               "copy-value"  "c"
               "copy-register" "\""
+              "bookmarks"   "m"
               "move"        "x"
               "paste"       "p"
               "paste-force" "P"

@@ -2,6 +2,7 @@
 (require "cogs/glyph/glyph.scm")
 (require "cogs/file-colors.scm")
 (require "cogs/file-explorer/files.scm")
+(require "cogs/file-explorer/bookmarks.scm")
 
 (provide make-file-explorer-render)
 
@@ -49,6 +50,7 @@
              [parent-cursor (state-ref 'parent-cursor)]
              [scrolls (state-ref 'col-scroll)]
              [marked (state-ref 'marked)]
+             [bookmarks (state-ref 'bookmarks)]
              [clipboard (state-ref 'clipboard)]
              [clipboard-mode (state-ref 'clipboard-mode)]
              [filter-query (state-ref 'filter-query)]
@@ -73,7 +75,7 @@
                                               (if sort-reverse? " desc] " "] ")))]
                [status-title (fe-fit-text (string-append queue-title filter-title sort-title)
                                           (max 0 (- box-w 5)))]
-               [path-title (fe-fit-text (state-ref 'path) (max 0 (- box-w 5 (fe-display-width status-title))))]
+               [path-title (fe-fit-text (fe-path-label (state-ref 'path)) (max 0 (- box-w 5 (fe-display-width status-title))))]
                [title-prefix (string-append BORDER-TL BORDER-H " " path-title " ")]
                [title (string-append title-prefix status-title)]
                [title-len (fe-display-width title)]
@@ -105,9 +107,12 @@
                               [entry (if (< file-idx (length entries)) (list-ref entries file-idx) #f)])
                          (cond
                            [(and entry (is-dir? entry))
-                            (let* ([name (fe-base-name entry)]
+                            (let* ([name (fe-entry-label entry)]
                                    [staged? (and markable? (and clipboard-mode (fe-member? entry clipboard)))]
-                                   [mark (if (and markable? (fe-member? entry marked)) "* " "  ")]
+                                   [bookmark-key (fe-bookmark-key-for-path bookmarks entry)]
+                                   [mark (cond [(and markable? (fe-member? entry marked)) "* "]
+                                               [bookmark-key (string-append (string bookmark-key) " ")]
+                                               [else "  "])]
                                    [icon-str (string-append (glyph-dir-closed) " ")]
                                    [display (fe-fit-text name (- col-w (fe-display-width mark) (fe-display-width icon-str)))]
                                    [row-style (if selected? active-style (if staged? staged-style dir-style))])
@@ -117,9 +122,12 @@
                               (frame-set-string! frame (+ col-x (fe-display-width mark)) row-y icon-str row-style)
                               (frame-set-string! frame (+ col-x (fe-display-width mark) (fe-display-width icon-str)) row-y display row-style))]
                            [entry
-                            (let* ([name (fe-base-name entry)]
+                            (let* ([name (fe-entry-label entry)]
                                    [staged? (and markable? (and clipboard-mode (fe-member? entry clipboard)))]
-                                   [mark (if (and markable? (fe-member? entry marked)) "* " "  ")]
+                                   [bookmark-key (fe-bookmark-key-for-path bookmarks entry)]
+                                   [mark (cond [(and markable? (fe-member? entry marked)) "* "]
+                                               [bookmark-key (string-append (string bookmark-key) " ")]
+                                               [else "  "])]
                                    [icon (glyph-icon name)]
                                    [icon-str (string-append icon " ")]
                                    [icon-color (style-fg (style) (glyph-hex->color (file-color name)))]
@@ -144,7 +152,7 @@
                      (let ([row-y (+ content-y i)])
                        (if (< i (length children))
                            (let* ([child (list-ref children i)]
-                                  [name (fe-base-name child)]
+                                  [name (fe-entry-label child)]
                                   [child-style (if (is-dir? child) dir-style text-style)]
                                   [icon-str (string-append (glyph-icon (if (is-dir? child) "" name)) " ")]
                                   [display (fe-fit-text name (- rw (fe-display-width icon-str)))])
