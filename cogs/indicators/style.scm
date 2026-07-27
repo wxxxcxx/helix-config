@@ -4,7 +4,7 @@
 (require "helix/components.scm")
 (require "cogs/color.scm")
 
-(provide make-style make-indicator-frame with-arcs)
+(provide make-style make-indicator with-separators)
 
 (define (resolve-color color)
   (and color
@@ -26,23 +26,31 @@
          [s (if bg-color (style-bg s bg-color) s)])
     s))
 
-(define (make-indicator-frame style focused?
-                              #:placeholder (placeholder #f)
-                              #:left? (left? #f)
-                              #:left-fg (left-fg #f)
-                              #:left-bg (left-bg #f)
-                              #:left-char (left-char "")
-                              #:right? (right? #f)
-                              #:right-fg (right-fg #f)
-                              #:right-bg (right-bg #f)
-                              #:right-char (right-char ""))
-  (lambda (spans)
-    (with-arcs spans #:placeholder placeholder #:placeholder-style style #:focused? focused?
-               #:left? left? #:left-fg left-fg #:left-bg left-bg #:left-char left-char
-               #:right? right? #:right-fg right-fg #:right-bg right-bg #:right-char right-char)))
+(define identity-style (lambda (s) s))
+
+(define (make-indicator render
+                        #:fg (fg #f)
+                        #:bg (bg #f)
+                        #:placeholder (placeholder #f)
+                        #:style-transform (style-transform identity-style)
+                        #:left-separator? (left? #f)
+                        #:left-separator-fg (left-fg #f)
+                        #:left-separator-bg (left-bg #f)
+                        #:left-separator-char (left-char "")
+                        #:right-separator? (right? #f)
+                        #:right-separator-fg (right-fg #f)
+                        #:right-separator-bg (right-bg #f)
+                        #:right-separator-char (right-char ""))
+  (status-element
+    (lambda (view-id focused?)
+      (let ([s (style-transform (make-style fg bg focused?))])
+        (with-separators (render view-id focused? s)
+                         #:placeholder placeholder #:placeholder-style s #:focused? focused?
+                         #:left? left? #:left-fg (or left-fg bg) #:left-bg left-bg #:left-char left-char
+                         #:right? right? #:right-fg (or right-fg bg) #:right-bg right-bg #:right-char right-char)))))
 
 ;; Empty indicators render their configured placeholder inside the same boundaries.
-(define (with-arcs spans
+(define (with-separators spans
                    #:placeholder (placeholder #f)
                    #:placeholder-style (placeholder-style (style))
                    #:focused? (focused? #t)
