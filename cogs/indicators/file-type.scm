@@ -6,13 +6,25 @@
 
 (provide file-type-indicator)
 
-(define (file-type-indicator #:fg (fg #f) #:bg (bg #f))
+(define (file-type-indicator #:fg (fg #f) #:bg (bg #f)
+                             #:placeholder (placeholder " <none> ")
+                             #:left-arc? (left-arc? #f) #:left-arc-fg (left-arc-fg #f) #:left-arc-bg (left-arc-bg #f)
+                             #:left-arc-char (left-arc-char "")
+                             #:right-arc? (right-arc? #f) #:right-arc-fg (right-arc-fg #f) #:right-arc-bg (right-arc-bg #f)
+                             #:right-arc-char (right-arc-char ""))
   (status-element
     (lambda (view-id focused?)
-      (define s (make-style fg bg focused?))
       (define doc-id (editor->doc-id view-id))
-      (define lang (or (editor-document->language doc-id) ""))
-      (list
-        (span " <" s)
-        (span lang s)
-        (span "> " s)))))
+      (define lang (editor-document->language doc-id))
+      (define s (make-style fg bg focused?))
+      (if (and lang (not (string=? lang "")))
+          (with-arcs
+            (list
+              (span " <" s)
+              (span lang s)
+              (span "> " s))
+            #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
+            #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char #:focused? focused?)
+          (with-arcs '() #:placeholder placeholder #:placeholder-style s
+                     #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
+                     #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char #:focused? focused?)))))

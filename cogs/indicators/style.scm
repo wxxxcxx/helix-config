@@ -6,25 +6,56 @@
 
 (provide clamp
          make-style
-         make-arc-style)
+         make-arc-style
+         with-arcs)
 
 (define (resolve-color color)
   (and color
        (->color (safe-color (if (procedure? color) (color) color)))))
 
+(define (focus-color color focused?)
+  (if (or focused? (not color))
+      color
+      (desaturate color 0.0)))
+
 (define (make-style fg bg focused?)
   (let* ([raw-fg (if (procedure? fg) (fg) fg)]
-         [fg-color (resolve-color (if (and raw-fg (not focused?))
-                                      (desaturate raw-fg 0.05)
-                                      raw-fg))]
-         [bg-color (resolve-color bg)]
+         [raw-bg (if (procedure? bg) (bg) bg)]
+         [fg-color (resolve-color (focus-color raw-fg focused?))]
+         [bg-color (resolve-color (focus-color raw-bg focused?))]
          [s (if fg-color (style-fg (style) fg-color) (style))]
          [s (if bg-color (style-bg s bg-color) s)])
     s))
 
-;; Arc glyphs must use the exact adjacent background colors.
-(define (make-arc-style fg bg)
-  (let* ([fg-color (resolve-color fg)]
-         [bg-color (resolve-color bg)]
+;; Arc glyphs share the focused view's color treatment with their indicator.
+(define (make-arc-style fg bg focused?)
+  (let* ([raw-fg (if (procedure? fg) (fg) fg)]
+         [raw-bg (if (procedure? bg) (bg) bg)]
+         [fg-color (resolve-color (focus-color raw-fg focused?))]
+         [bg-color (resolve-color (focus-color raw-bg focused?))]
          [s (if fg-color (style-fg (style) fg-color) (style))])
     (if bg-color (style-bg s bg-color) s)))
+
+;; Empty indicators render their configured placeholder inside the same boundaries.
+(define (with-arcs spans
+                   #:placeholder (placeholder #f)
+                   #:placeholder-style (placeholder-style (style))
+                   #:focused? (focused? #t)
+                   #:left? (left? #f)
+                   #:left-fg (left-fg #f)
+                   #:left-bg (left-bg #f)
+                   #:left-char (left-char "")
+                   #:right? (right? #f)
+                   #:right-fg (right-fg #f)
+                   #:right-bg (right-bg #f)
+                   #:right-char (right-char ""))
+  (define content
+    (if (and (null? spans) placeholder)
+        (list (span placeholder placeholder-style))
+        spans))
+  (if (null? content)
+      '()
+      (append
+        (if (and left? left-fg) (list (span left-char (make-arc-style left-fg left-bg focused?))) '())
+        content
+        (if (and right? right-fg) (list (span right-char (make-arc-style right-fg right-bg focused?))) '()))))
