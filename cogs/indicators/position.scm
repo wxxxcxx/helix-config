@@ -12,7 +12,7 @@
 (provide position-indicator)
 
 (define (position-indicator #:fg (fg #f) #:bg (bg #f)
-                            #:placeholder (placeholder " --:--/--, --% ")
+                            #:placeholder (placeholder " --/--░-- 󰄰 ")
                             #:left-separator? (left-separator? #f) #:left-separator-fg (left-separator-fg #f) #:left-separator-bg (left-separator-bg #f)
                             #:left-separator-char (left-separator-char "")
                             #:right-separator? (right-separator? #f) #:right-separator-fg (right-separator-fg #f) #:right-separator-bg (right-separator-bg #f)
@@ -29,11 +29,22 @@
                           (clamp (inexact->exact
                                    (round (* 100.0 (/ (- line 1) (- total 1)))))
                                  0 100)
-                          0)])
+                          0)]
+                 [progress (cond
+                             [(= pct 0) "󰄰"]
+                             [(< pct 13) "󰪞"]
+                             [(< pct 26) "󰪟"]
+                             [(< pct 39) "󰪠"]
+                             [(< pct 52) "󰪡"]
+                             [(< pct 65) "󰪢"]
+                             [(< pct 78) "󰪣"]
+                             [(< pct 91) "󰪤"]
+                             [(< pct 100) "󰪥"]
+                             [else "󰄯"])])
             (list (span (string-append " " (number->string line)
-                                       ":" (number->string col)
                                        "/" (number->string total)
-                                       ", " (number->string pct) "% ") s)))
+                                       "," (number->string col)
+                                       " " progress " ") s)))
           '()))
     #:fg fg #:bg bg #:placeholder placeholder
     #:left-separator? left-separator? #:left-separator-fg left-separator-fg #:left-separator-bg left-separator-bg #:left-separator-char left-separator-char
