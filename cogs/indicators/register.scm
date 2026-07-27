@@ -2,13 +2,14 @@
 
 (require "helix/components.scm")
 (require "helix/editor.scm")
+(require "cogs/indicators/style.scm")
 
 (provide register-indicator)
 
-(define (register-indicator #:style (style (lambda args (style))))
+(define (register-indicator #:fg (fg #f) #:bg (bg #f))
   (status-element
     (lambda (view-id focused?)
-      (define s (if (procedure? style) (style view-id focused?) style))
+      (define s (make-style fg bg focused?))
       (define reg (selected-register!))
       (if (and reg (not (equal? reg #\")))
           (list

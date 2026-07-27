@@ -3,6 +3,7 @@
 
 (require "helix/components.scm")
 (require "helix/editor.scm")
+(require "cogs/indicators/style.scm")
 
 (provide mode-style mode-indicator)
 
@@ -22,9 +23,8 @@
 (define (mode-style)
   (theme-scope-ref (string-append "ui.statusline." (mode-name))))
 
-(define (mode-indicator #:style (style (lambda args (style))))
+(define (mode-indicator #:fg (fg #f) #:bg (bg #f))
   (status-element
     (lambda (view-id focused?)
-      (define s (if (procedure? style) (style view-id focused?) style))
       (define label (if focused? (hash-ref mode-labels (mode-name)) "         "))
-      (list (span label (~> s style-with-bold))))))
+      (list (span label (~> (make-style fg bg focused?) style-with-bold))))))

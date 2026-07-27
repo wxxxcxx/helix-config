@@ -2,13 +2,14 @@
 
 (require "helix/components.scm")
 (require "helix/editor.scm")
+(require "cogs/indicators/style.scm")
 
 (provide file-type-indicator)
 
-(define (file-type-indicator #:style (style (lambda args (style))))
+(define (file-type-indicator #:fg (fg #f) #:bg (bg #f))
   (status-element
     (lambda (view-id focused?)
-      (define s (if (procedure? style) (style view-id focused?) style))
+      (define s (make-style fg bg focused?))
       (define doc-id (editor->doc-id view-id))
       (define lang (or (editor-document->language doc-id) ""))
       (list

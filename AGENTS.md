@@ -1,12 +1,15 @@
 # AGENTS.md
 
-Helix 编辑器配置，基于 [mattwparas/helix](https://github.com/mattwparas/helix) 分支，使用 Steel（Scheme 方言）。
+Helix 编辑器配置，基于 [mattwparas/helix](https://github.com/mattwparas/helix) 分支，使用 Steel（Scheme 方言）配置。
 
 ## 参考
 
-- `~/.local/share/steel/cogs/helix/*.scm` — 官方 Helix Steel API
+- `~/.local/share/steel/cogs/helix/*.scm` — 官方 Helix 内置函数 Steel 包装
 - https://mattwparas.github.io/steel/book/introduction.html Steel 语言文档
+- https://mattwparas.github.io/steel/book/reference/builtins.html Steel 函数速查
+- https://mattwparas.github.io/steel/book/generated/logging.html Steel 日志函数
 - [mattwparas/helix-config](https://github.com/mattwparas/helix-config) — 分支作者的示例
+- `~/.cache/helix/helix.log` 默认日志文件位置，可以使用tail读取
 
 ## 架构
 
@@ -28,8 +31,3 @@ Helix 编辑器配置，基于 [mattwparas/helix](https://github.com/mattwparas/
 - Shell 命令：`(spawn-process (command "name" '("arg1" "arg2")))`
 - 钩子：`(register-hook 'on-mode-switch (lambda (event) ...))`
 - `runtime/` 和 `steel/` 被 gitignore（外部生成/同步）
-
-## 依赖管理
-
-- APM 管理 skills，位于 `.agents/skills/` 和 `.opencode/commands/`（两者均被 gitignore）。
-- 锁文件和清单：`apm.lock.yaml`、`apm.yml`（均被 gitignore）。

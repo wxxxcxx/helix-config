@@ -6,14 +6,14 @@
 (require "helix/static.scm")
 (require-builtin helix/core/text as text.)
 
-(require "cogs/color.scm")
+(require "cogs/indicators/style.scm")
 
 (provide position-indicator)
 
-(define (position-indicator #:style (style (lambda args (style))))
+(define (position-indicator #:fg (fg #f) #:bg (bg #f))
   (status-element
     (lambda (view-id focused?)
-      (define s (if (procedure? style) (style view-id focused?) style))
+      (define s (make-style fg bg focused?))
       (if focused?
           (let* ([doc-id (editor->doc-id view-id)]
                  [rope (editor->text doc-id)]

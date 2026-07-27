@@ -7,7 +7,11 @@
 (provide clamp
          color-terminal?
          ansi->hex
-         closest-ansi)
+         closest-ansi
+         safe-color
+         ->color
+          color->hex)
+
 
 (define (clamp v min max)
   (cond
@@ -124,6 +128,44 @@
             *ansi-colors*)
   best-name)
 
+(define (safe-color color)
+  (cond
+    [(not color) #f]
+    [(string? color)
+     (if (or (color-terminal?) (not (starts-with? color "#")))
+         color
+         (closest-ansi color))]
+    [(color-terminal?) color]
+    [else
+     (with-handler
+       (lambda (_) #f)
+       (closest-ansi (color->hex color)))]))
+
+(define (->color c)
+  (if (string? c)
+      (string->color (if (starts-with? c "#") c (ansi->hex c)))
+      c))
+
+(define hex-digits "0123456789ABCDEF")
+
+(define (byte->hex n)
+  (let loop ([i 0])
+    (if (< (- n (* i 16)) 16)
+        (string (string-ref hex-digits i)
+                (string-ref hex-digits (- n (* i 16))))
+        (loop (+ i 1)))))
+
+(define (color->hex c)
+  (let ([r (Color-red c)]
+        [g (Color-green c)]
+        [b (Color-blue c)])
+    (if (and (number? r) (number? g) (number? b))
+        (string-append "#"
+          (byte->hex r)
+          (byte->hex g)
+          (byte->hex b))
+        "#5E81AC")))
+
 ;; ── RGB ↔ HSL conversion ────────────────────────────────────────
 
 (define (rgb->hsl color)
@@ -173,32 +215,36 @@
 (provide darken)
 
 (define (darken color factor)
-  (Color/rgb
-    (inexact->exact (round (* (Color-red color) factor)))
-    (inexact->exact (round (* (Color-green color) factor)))
-    (inexact->exact (round (* (Color-blue color) factor)))))
+  (let ([color (->color color)])
+    (Color/rgb
+      (inexact->exact (round (* (Color-red color) factor)))
+      (inexact->exact (round (* (Color-green color) factor)))
+      (inexact->exact (round (* (Color-blue color) factor))))))
 
 (provide lighten)
 
 (define (lighten color factor)
-  (Color/rgb
-    (clamp (inexact->exact (round (* (Color-red color) factor))) 0 255)
-    (clamp (inexact->exact (round (* (Color-green color) factor))) 0 255)
-    (clamp (inexact->exact (round (* (Color-blue color) factor))) 0 255)))
+  (let ([color (->color color)])
+    (Color/rgb
+      (clamp (inexact->exact (round (* (Color-red color) factor))) 0 255)
+      (clamp (inexact->exact (round (* (Color-green color) factor))) 0 255)
+      (clamp (inexact->exact (round (* (Color-blue color) factor))) 0 255))))
 
 ;; ── Saturation ───────────────────────────────────────────────────
 
 (provide saturate)
 
 (define (saturate color factor)
-  (define hsl (rgb->hsl color))
-  (hsl->rgb (car hsl) (clamp-f (* (cadr hsl) factor)) (caddr hsl)))
+  (let ([color (->color color)])
+    (define hsl (rgb->hsl color))
+    (hsl->rgb (car hsl) (clamp-f (* (cadr hsl) factor)) (caddr hsl))))
 
 (provide desaturate)
 
 (define (desaturate color factor)
-  (define hsl (rgb->hsl color))
-  (hsl->rgb (car hsl) (clamp-f (* (cadr hsl) factor)) (caddr hsl)))
+  (let ([color (->color color)])
+    (define hsl (rgb->hsl color))
+    (hsl->rgb (car hsl) (clamp-f (* (cadr hsl) factor)) (caddr hsl))))
 
 ;; ── Luminance ────────────────────────────────────────────────────
 
@@ -206,15 +252,17 @@
 ;;@doc
 ;; Relative luminance (BT.601), 0.0 (dark) ~ 1.0 (light).
 (define (luminance color)
-  (+ (* 0.299 (/ (Color-red color) 255.0))
-     (* 0.587 (/ (Color-green color) 255.0))
-     (* 0.114 (/ (Color-blue color) 255.0))))
+  (let ([color (->color color)])
+    (+ (* 0.299 (/ (Color-red color) 255.0))
+       (* 0.587 (/ (Color-green color) 255.0))
+       (* 0.114 (/ (Color-blue color) 255.0)))))
 
 (provide contrast-text)
 ;;@doc
 ;; Returns light (#D8DEE9) or dark (#2E3440) text color
 ;; depending on whether bg is dark or light.
 (define (contrast-text bg)
-  (if (> (luminance bg) 0.5)
-      (string->color "#2E3440")
-      (string->color "#D8DEE9")))
+  (let ([bg (->color bg)])
+    (if (> (luminance bg) 0.5)
+        (string->color "#2E3440")
+        (string->color "#D8DEE9"))))

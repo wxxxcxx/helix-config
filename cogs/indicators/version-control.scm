@@ -3,6 +3,7 @@
 (require "helix/components.scm")
 (require "helix/editor.scm")
 (require "helix/misc.scm")
+(require "cogs/indicators/style.scm")
 
 (define (parent-dir path)
   (let loop ([i (- (string-length path) 1)])
@@ -68,10 +69,10 @@
 
 (provide version-control-indicator)
 
-(define (version-control-indicator #:style (style (lambda args (style))))
+(define (version-control-indicator #:fg (fg #f) #:bg (bg #f))
   (status-element
     (lambda (view-id focused?)
-      (define s (if (procedure? style) (style view-id focused?) style))
+      (define s (make-style fg bg focused?))
       (define doc-id (editor->doc-id view-id))
       (define path (editor-document->path doc-id))
       (if path
