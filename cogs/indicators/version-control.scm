@@ -5,15 +5,8 @@
 (require "helix/misc.scm")
 (require "cogs/indicators/style.scm")
 
-(define (parent-dir path)
-  (let loop ([i (- (string-length path) 1)])
-    (cond
-      [(< i 0) "."]
-      [(char=? (string-ref path i) #\/)
-       (substring path 0 i)]
-      [else (loop (- i 1))])))
-
 (define *git-cache-dir* #f)
+(define *git-cache-stale?* #t)
 (define *git-cache-branch* #f)
 (define *git-cache-staged* 0)
 (define *git-cache-unstaged* 0)
@@ -65,9 +58,20 @@
   (define stats (git-stats dir))
   (set! *git-cache-staged* (car stats))
   (set! *git-cache-unstaged* (cadr stats))
-  (set! *git-cache-untracked* (caddr stats)))
+  (set! *git-cache-untracked* (caddr stats))
+  (set! *git-cache-stale?* #f))
 
-(provide version-control-indicator)
+(define (invalidate-version-control-cache!)
+  (set! *git-cache-stale?* #t))
+
+;; Git only observes saved documents, so invalidation happens after a save.
+(define (version-control-init)
+  (register-hook 'document-saved
+                 (lambda (doc-id) (invalidate-version-control-cache!)))
+  (register-hook 'terminal-focus-gained
+                 (lambda () (invalidate-version-control-cache!))))
+
+(provide version-control-init version-control-indicator)
 
 (define (version-control-indicator #:fg (fg #f) #:bg (bg #f)
                                   #:placeholder (placeholder "  - ")
@@ -80,12 +84,18 @@
       (define s (make-style fg bg focused?))
       (define doc-id (editor->doc-id view-id))
       (define path (editor-document->path doc-id))
+      (define (frame spans)
+        (with-arcs spans #:placeholder placeholder #:placeholder-style s #:focused? focused?
+                   #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
+                   #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char))
       (if path
-          (let ([dir (parent-dir path)])
-            (unless (and *git-cache-dir* (string=? dir *git-cache-dir*))
+          (let ([dir (parent-name path)])
+            (unless (and (not *git-cache-stale?*)
+                         *git-cache-dir*
+                         (string=? dir *git-cache-dir*))
               (git-refresh! dir))
             (if *git-cache-branch*
-                (with-arcs
+                (frame
                   (apply append
                     (list
                       (list
@@ -106,12 +116,6 @@
                             (span " ?" s)
                             (span (number->string *git-cache-untracked*) s))
                           '())
-                      (list (span " " s))))
-                  #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
-                  #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char #:focused? focused?)
-              (with-arcs '() #:placeholder placeholder #:placeholder-style s
-                         #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
-                         #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char #:focused? focused?)))
-          (with-arcs '() #:placeholder placeholder #:placeholder-style s
-                     #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
-                     #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char #:focused? focused?)))))
+                      (list (span " " s)))))
+              (frame '())))
+          (frame '())))))

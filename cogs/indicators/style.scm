@@ -4,10 +4,7 @@
 (require "helix/components.scm")
 (require "cogs/color.scm")
 
-(provide clamp
-         make-style
-         make-arc-style
-         with-arcs)
+(provide make-style with-arcs)
 
 (define (resolve-color color)
   (and color
@@ -18,23 +15,16 @@
       color
       (desaturate color 0.0)))
 
+(define (resolve-focused-color color focused?)
+  (resolve-color
+    (focus-color (if (procedure? color) (color) color) focused?)))
+
 (define (make-style fg bg focused?)
-  (let* ([raw-fg (if (procedure? fg) (fg) fg)]
-         [raw-bg (if (procedure? bg) (bg) bg)]
-         [fg-color (resolve-color (focus-color raw-fg focused?))]
-         [bg-color (resolve-color (focus-color raw-bg focused?))]
+  (let* ([fg-color (resolve-focused-color fg focused?)]
+         [bg-color (resolve-focused-color bg focused?)]
          [s (if fg-color (style-fg (style) fg-color) (style))]
          [s (if bg-color (style-bg s bg-color) s)])
     s))
-
-;; Arc glyphs share the focused view's color treatment with their indicator.
-(define (make-arc-style fg bg focused?)
-  (let* ([raw-fg (if (procedure? fg) (fg) fg)]
-         [raw-bg (if (procedure? bg) (bg) bg)]
-         [fg-color (resolve-color (focus-color raw-fg focused?))]
-         [bg-color (resolve-color (focus-color raw-bg focused?))]
-         [s (if fg-color (style-fg (style) fg-color) (style))])
-    (if bg-color (style-bg s bg-color) s)))
 
 ;; Empty indicators render their configured placeholder inside the same boundaries.
 (define (with-arcs spans
@@ -56,6 +46,6 @@
   (if (null? content)
       '()
       (append
-        (if (and left? left-fg) (list (span left-char (make-arc-style left-fg left-bg focused?))) '())
+        (if (and left? left-fg) (list (span left-char (make-style left-fg left-bg focused?))) '())
         content
-        (if (and right? right-fg) (list (span right-char (make-arc-style right-fg right-bg focused?))) '()))))
+        (if (and right? right-fg) (list (span right-char (make-style right-fg right-bg focused?))) '()))))

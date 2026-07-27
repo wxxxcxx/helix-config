@@ -2,26 +2,16 @@
 ;; — mode indicator
 
 (require "helix/components.scm")
-(require "helix/editor.scm")
 (require "cogs/indicators/style.scm")
+(require (only-in "cogs/statusline-palette.scm" statusline-mode-name))
 
-(provide mode-style mode-indicator)
+(provide mode-indicator)
 
 (define mode-labels
   (hash
     "normal" "❖ NORMAL "
     "insert" "❖ INSERT "
     "select" "❖ SELECT "))
-
-(define (mode-name)
-  (define mode (editor-mode))
-  (cond
-    [(equal? mode (string->editor-mode "insert")) "insert"]
-    [(equal? mode (string->editor-mode "select")) "select"]
-    [else "normal"]))
-
-(define (mode-style)
-  (theme-scope-ref (string-append "ui.statusline." (mode-name))))
 
 (define (mode-indicator #:fg (fg #f) #:bg (bg #f)
                         #:placeholder (placeholder "❖ INACTIVE ")
@@ -32,12 +22,10 @@
   (status-element
     (lambda (view-id focused?)
       (define s (~> (make-style fg bg focused?) style-with-bold))
+      (define (frame spans)
+        (with-arcs spans #:placeholder placeholder #:placeholder-style s #:focused? focused?
+                   #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
+                   #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char))
       (if focused?
-          (with-arcs
-            (list (span (hash-ref mode-labels (mode-name))
-                        s))
-            #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
-            #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char #:focused? focused?)
-          (with-arcs '() #:placeholder placeholder #:placeholder-style s
-                     #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
-                     #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char #:focused? focused?)))))
+          (frame (list (span (hash-ref mode-labels (statusline-mode-name)) s)))
+          (frame '())))))

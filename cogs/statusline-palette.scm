@@ -7,11 +7,12 @@
 
 (provide major-bg
          minor
-         contrast-bg)
+         contrast-bg
+         statusline-mode-name)
 
 (define default-major-bg "#5E81AC")
 
-(define (mode-name)
+(define (statusline-mode-name)
   (define mode (editor-mode))
   (cond
     [(equal? mode (string->editor-mode "insert")) "insert"]
@@ -19,7 +20,7 @@
     [else "normal"]))
 
 (define (major-bg)
-  (let* ([style (theme-scope-ref (string-append "ui.statusline." (mode-name)))]
+  (let* ([style (theme-scope-ref (string-append "ui.statusline." (statusline-mode-name)))]
          [color (or (style->bg style) (style->fg style))])
     (if color (color->hex color) default-major-bg)))
 

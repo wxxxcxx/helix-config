@@ -27,10 +27,14 @@
         (let ([path (editor-document->path doc-id)])
           (and path (basename path))))
       (define s (make-style fg bg focused?))
+      (define (frame spans)
+        (with-arcs spans #:placeholder placeholder #:placeholder-style s #:focused? focused?
+                   #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
+                   #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char))
       (if name
           (let* ([dirty? (editor-document-dirty? doc-id)]
                  [dirty-style (and dirty? (make-style "#BF616A" #f focused?))])
-            (with-arcs
+            (frame
               (apply append
                 (list
                   (list
@@ -39,9 +43,5 @@
                   (if dirty?
                       (list (span "*" dirty-style)
                             (span " " s))
-                      (list (span " " s)))))
-              #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
-              #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char #:focused? focused?))
-          (with-arcs '() #:placeholder placeholder #:placeholder-style s
-                     #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
-                     #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char #:focused? focused?)))))
+                      (list (span " " s)))))))
+          (frame '())))))

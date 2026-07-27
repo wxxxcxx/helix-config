@@ -15,6 +15,10 @@
   (status-element
     (lambda (view-id focused?)
       (define s (make-style fg bg focused?))
+      (define (frame spans)
+        (with-arcs spans #:placeholder placeholder #:placeholder-style s #:focused? focused?
+                   #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
+                   #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char))
       (define docs (editor-all-documents))
       (define total (length docs))
       (define dirty-count
@@ -23,7 +27,6 @@
         (if (> dirty-count 0)
             (string-append "  " (number->string total) " ~ " (number->string dirty-count) " ")
             (string-append "  " (number->string total) " ")))
-      (with-arcs
-        (list (span text s))
-        #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
-        #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char #:focused? focused?))))
+      (frame (if (> total 0)
+                 (list (span text s))
+                 '())))))

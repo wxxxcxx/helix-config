@@ -11,6 +11,6 @@
 (require "cogs/indicators/buffers.scm")
 
 (provide mode-indicator
-         file-name-indicator version-control-indicator
+         file-name-indicator version-control-indicator version-control-init
          selections-indicator position-indicator file-type-indicator
          register-indicator buffers-indicator)

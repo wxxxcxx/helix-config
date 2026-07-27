@@ -6,6 +6,7 @@
 (require "helix/static.scm")
 (require-builtin helix/core/text as text.)
 
+(require (only-in "cogs/color.scm" clamp))
 (require "cogs/indicators/style.scm")
 
 (provide position-indicator)
@@ -19,6 +20,10 @@
   (status-element
     (lambda (view-id focused?)
       (define s (make-style fg bg focused?))
+      (define (frame spans)
+        (with-arcs spans #:placeholder placeholder #:placeholder-style s #:focused? focused?
+                   #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
+                   #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char))
       (if focused?
           (let* ([doc-id (editor->doc-id view-id)]
                  [rope (editor->text doc-id)]
@@ -30,13 +35,9 @@
                                    (round (* 100.0 (/ (- line 1) (- total 1)))))
                                  0 100)
                           0)])
-            (with-arcs
+            (frame
               (list (span (string-append " " (number->string line)
                                          ":" (number->string col)
                                          "/" (number->string total)
-                                         ", " (number->string pct) "% ") s))
-              #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
-              #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char #:focused? focused?))
-          (with-arcs '() #:placeholder placeholder #:placeholder-style s
-                     #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
-                     #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char #:focused? focused?)))))
+                                         ", " (number->string pct) "% ") s))))
+          (frame '())))))

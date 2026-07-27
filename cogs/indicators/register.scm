@@ -16,14 +16,14 @@
     (lambda (view-id focused?)
       (define s (make-style fg bg focused?))
       (define reg (selected-register!))
+      (define (frame spans)
+        (with-arcs spans #:placeholder placeholder #:placeholder-style s #:focused? focused?
+                   #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
+                   #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char))
       (if (and reg (not (equal? reg #\")))
-          (with-arcs
+          (frame
             (list
               (span " \"" s)
               (span (string reg) s)
-              (span " " s))
-            #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
-            #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char #:focused? focused?)
-          (with-arcs '() #:placeholder placeholder #:placeholder-style s
-                     #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
-                     #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char #:focused? focused?)))))
+              (span " " s)))
+          (frame '())))))
