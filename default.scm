@@ -3,9 +3,9 @@
 
 (require "helix/configuration.scm")
 (require "helix/components.scm")
-(require "themes/woz.scm")
-
 (require "cogs/color.scm")
+(require "themes/woz.scm")
+(require "themes/woz-safe.scm")
 
 (define (default-init)
   (line-number 'relative)
@@ -17,7 +17,6 @@
                  (if (equal? (current-os!) "macos") "pasteboard" "xclip")))
   (set-option! 'default-yank-register "+")
   (jump-label-alphabet "fjdkslarueiwoqpvncmxz")
-  (when (color-terminal?)
-    (helix.theme "woz")))
+  (helix.theme (if (color-terminal?) "woz" "woz-safe")))
 
 (provide default-init)
