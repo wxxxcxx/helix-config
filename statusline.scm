@@ -1,16 +1,16 @@
 ;; statusline.scm
-;; Statusline — color definitions + default layout
+;; Statusline — true-color layout with 256-color/ANSI fallback
 
 (require "helix/configuration.scm")
 (require (only-in "helix/themes.scm" string->color))
 (require "cogs/indicators/indicators.scm")
 (require "cogs/color.scm")
-(provide major-bg minor-bg text-color accent statusline-init)
+(provide statusline-init)
+
+;; ── True-color helpers ───────────────────────────────────────────
 
 (define (named-style fg bg)
   (~> (style) (style-fg fg) (style-bg bg)))
-
-;; ── Pure color thunks ────────────────────────────────────────────
 
 (define (major-bg)
   (or (style->bg (mode-style)) (style->fg (mode-style))))
@@ -18,16 +18,9 @@
 (define (minor-bg n)
   (darken (desaturate (major-bg) 0.3) n))
 
-(define (text-color) (string->color "#D8DEE9"))
-(define (accent) (string->color "#88C0D0"))
-
-;; ── Focus-aware color wrapper ────────────────────────────────────
-
 (define (maybe-gray thunk focused?)
   (define base (thunk))
   (if focused? base (desaturate base 0.05)))
-
-;; ── Style factories (return (lambda (view-id focused?) Style)) ───
 
 (define (content-style color-thunk)
   (lambda (v f)
@@ -44,10 +37,26 @@
 
 (define (minor n) (lambda () (minor-bg n)))
 
+;; ── Fallback helpers (no true color) ─────────────────────────────
+
+(define fallback-statusline-style
+  (lambda (v f)
+    (if f
+        (theme-scope-ref "ui.statusline")
+        (theme-scope-ref "ui.statusline"))))
+
+(define (fallback-mode-indicator)
+  (mode-indicator #:style fallback-statusline-style))
+
 ;; ── Statusline layout ────────────────────────────────────────────
 
 (define (statusline-init)
   (bufferline "never")
+  (if (color-terminal?)
+      (tc-statusline)
+      (fallback-statusline)))
+
+(define (tc-statusline)
   (statusline
     #:center (list 'primary-selection-length 'file-indent-style 'file-line-ending 'file-encoding
                    'read-only-indicator 'diagnostics 'workspace-diagnostics 'spinner)
@@ -69,3 +78,22 @@
       (left-arc-indicator #:style (link-style major-bg (minor 0.4)))
       (file-type-indicator #:style (content-style major-bg))
       (right-arc-indicator #:style (edge-style major-bg)))))
+
+(define (fallback-statusline)
+  (statusline
+    #:center (list 'primary-selection-length 'file-indent-style 'file-line-ending 'file-encoding
+                   'read-only-indicator 'diagnostics 'workspace-diagnostics 'spinner)
+    #:left (list
+      (left-arc-indicator #:style fallback-statusline-style)
+      (mode-indicator #:style fallback-statusline-style)
+      (right-arc-indicator #:style fallback-statusline-style)
+      (version-control-indicator #:style fallback-statusline-style)
+      (file-name-indicator #:style fallback-statusline-style)
+      (right-arc-indicator #:style fallback-statusline-style))
+    #:right (list
+      (left-arc-indicator #:style fallback-statusline-style)
+      (selections-indicator #:style fallback-statusline-style)
+      (position-indicator #:style fallback-statusline-style)
+      (buffers-indicator #:style fallback-statusline-style)
+      (file-type-indicator #:style fallback-statusline-style)
+      (right-arc-indicator #:style fallback-statusline-style))))

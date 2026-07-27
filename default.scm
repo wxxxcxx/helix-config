@@ -5,6 +5,8 @@
 (require "helix/components.scm")
 (require "themes/woz.scm")
 
+(require "cogs/color.scm")
+
 (define (default-init)
   (line-number 'relative)
   (indent-guides (ig-render #t))
@@ -15,6 +17,7 @@
                  (if (equal? (current-os!) "macos") "pasteboard" "xclip")))
   (set-option! 'default-yank-register "+")
   (jump-label-alphabet "fjdkslarueiwoqpvncmxz")
-  (helix.theme "woz"))
+  (when (color-terminal?)
+    (helix.theme "woz")))
 
 (provide default-init)

@@ -4,7 +4,8 @@
 (require "helix/components.scm")
 (require (only-in "helix/themes.scm" string->color))
 
-(provide clamp)
+(provide clamp
+         color-terminal?)
 
 (define (clamp v min max)
   (cond
@@ -14,6 +15,13 @@
 
 (define (clamp-f v)
   (clamp v 0.0 1.0))
+
+(define (color-terminal?)
+  (with-handler
+    (lambda (_) #f)
+    (let ([ct (env-var "COLORTERM")])
+      (or (equal? ct "truecolor")
+          (equal? ct "24bit")))))
 
 ;; ── RGB ↔ HSL conversion ────────────────────────────────────────
 
