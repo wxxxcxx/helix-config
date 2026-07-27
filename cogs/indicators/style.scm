@@ -6,20 +6,25 @@
 
 (provide clamp
          make-style
-         safe-style)
+         make-arc-style)
 
-(define (safe-style s)
-  (let ([fg (style->fg s)]
-        [bg (style->bg s)])
-    (let* ([s1 (if fg (style-fg s (->color (safe-color (color->hex fg)))) s)]
-           [s2 (if bg (style-bg s1 (->color (safe-color (color->hex bg)))) s1)])
-      s2)))
+(define (resolve-color color)
+  (and color
+       (->color (safe-color (if (procedure? color) (color) color)))))
 
 (define (make-style fg bg focused?)
   (let* ([raw-fg (if (procedure? fg) (fg) fg)]
-         [raw-bg (if (procedure? bg) (bg) bg)]
-         [fg-color (and raw-fg (->color (safe-color (if focused? raw-fg (desaturate raw-fg 0.05)))))]
-         [bg-color (and raw-bg (->color (safe-color raw-bg)))]
+         [fg-color (resolve-color (if (and raw-fg (not focused?))
+                                      (desaturate raw-fg 0.05)
+                                      raw-fg))]
+         [bg-color (resolve-color bg)]
          [s (if fg-color (style-fg (style) fg-color) (style))]
          [s (if bg-color (style-bg s bg-color) s)])
     s))
+
+;; Arc glyphs must use the exact adjacent background colors.
+(define (make-arc-style fg bg)
+  (let* ([fg-color (resolve-color fg)]
+         [bg-color (resolve-color bg)]
+         [s (if fg-color (style-fg (style) fg-color) (style))])
+    (if bg-color (style-bg s bg-color) s)))
