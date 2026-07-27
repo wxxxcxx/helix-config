@@ -12,8 +12,7 @@
 (require "cogs/indicators/register.scm")
 (require "cogs/indicators/buffers.scm")
 
-(provide mode-style
-         left-arc-indicator right-arc-indicator
+(provide left-arc-indicator right-arc-indicator
          mode-indicator
          file-name-indicator version-control-indicator
          selections-indicator position-indicator file-type-indicator

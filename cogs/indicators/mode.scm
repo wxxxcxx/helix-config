@@ -1,13 +1,10 @@
 ;; cogs/indicators/mode.scm
-;; — mode tracking + mode indicator
+;; — mode indicator
 
 (require "helix/components.scm")
 (require "helix/editor.scm")
-(require "helix/misc.scm")
 
 (provide mode-style mode-indicator)
-
-(define *current-mode* "normal")
 
 (define mode-labels
   (hash
@@ -15,24 +12,19 @@
     "insert" "❖ INSERT "
     "select" "❖ SELECT "))
 
-(define insert-mode (string->editor-mode "insert"))
-(define select-mode (string->editor-mode "select"))
-
-(register-hook 'on-mode-switch
-  (lambda (event)
-    (define new-mode (mode-switch-new event))
-    (cond
-      [(equal? new-mode insert-mode) (set! *current-mode* "insert")]
-      [(equal? new-mode select-mode) (set! *current-mode* "select")]
-      [else (set! *current-mode* "normal")])))
+(define (mode-name)
+  (define mode (editor-mode))
+  (cond
+    [(equal? mode (string->editor-mode "insert")) "insert"]
+    [(equal? mode (string->editor-mode "select")) "select"]
+    [else "normal"]))
 
 (define (mode-style)
-  (theme-scope-ref (string-append "ui.statusline." *current-mode*)))
+  (theme-scope-ref (string-append "ui.statusline." (mode-name))))
 
 (define (mode-indicator #:style (style (lambda args (style))))
   (status-element
     (lambda (view-id focused?)
       (define s (if (procedure? style) (style view-id focused?) style))
-      (list
-        (span (if focused? (hash-ref mode-labels *current-mode*) "         ")
-              (~> s style-with-bold))))))
+      (define label (if focused? (hash-ref mode-labels (mode-name)) "         "))
+      (list (span label (~> s style-with-bold))))))

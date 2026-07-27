@@ -2,18 +2,27 @@
 ;; Statusline — true-color layout with 256-color/ANSI fallback
 
 (require "helix/configuration.scm")
+(require "helix/components.scm")
+(require "helix/editor.scm")
 (require (only-in "helix/themes.scm" string->color))
 (require "cogs/indicators/indicators.scm")
 (require "cogs/color.scm")
 (provide statusline-init)
 
+(define (major-bg)
+  (define mode (editor-mode))
+  (define mode-name
+    (cond
+      [(equal? mode (string->editor-mode "insert")) "insert"]
+      [(equal? mode (string->editor-mode "select")) "select"]
+      [else "normal"]))
+  (or (style->bg (theme-scope-ref (string-append "ui.statusline." mode-name)))
+      (style->fg (theme-scope-ref (string-append "ui.statusline." mode-name)))))
+
 ;; ── True-color helpers ───────────────────────────────────────────
 
 (define (named-style fg bg)
   (~> (style) (style-fg fg) (style-bg bg)))
-
-(define (major-bg)
-  (or (style->bg (mode-style)) (style->fg (mode-style))))
 
 (define (minor-bg n)
   (darken (desaturate (major-bg) 0.3) n))
