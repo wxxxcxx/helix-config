@@ -84,10 +84,10 @@
       (define s (make-style fg bg focused?))
       (define doc-id (editor->doc-id view-id))
       (define path (editor-document->path doc-id))
-      (define (frame spans)
-        (with-arcs spans #:placeholder placeholder #:placeholder-style s #:focused? focused?
-                   #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
-                   #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char))
+      (define frame
+        (make-indicator-frame s focused? #:placeholder placeholder
+                              #:left? left-arc? #:left-fg left-arc-fg #:left-bg left-arc-bg #:left-char left-arc-char
+                              #:right? right-arc? #:right-fg right-arc-fg #:right-bg right-arc-bg #:right-char right-arc-char))
       (if path
           (let ([dir (parent-name path)])
             (unless (and (not *git-cache-stale?*)

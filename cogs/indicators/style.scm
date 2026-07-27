@@ -4,7 +4,7 @@
 (require "helix/components.scm")
 (require "cogs/color.scm")
 
-(provide make-style with-arcs)
+(provide make-style make-indicator-frame with-arcs)
 
 (define (resolve-color color)
   (and color
@@ -25,6 +25,21 @@
          [s (if fg-color (style-fg (style) fg-color) (style))]
          [s (if bg-color (style-bg s bg-color) s)])
     s))
+
+(define (make-indicator-frame style focused?
+                              #:placeholder (placeholder #f)
+                              #:left? (left? #f)
+                              #:left-fg (left-fg #f)
+                              #:left-bg (left-bg #f)
+                              #:left-char (left-char "")
+                              #:right? (right? #f)
+                              #:right-fg (right-fg #f)
+                              #:right-bg (right-bg #f)
+                              #:right-char (right-char ""))
+  (lambda (spans)
+    (with-arcs spans #:placeholder placeholder #:placeholder-style style #:focused? focused?
+               #:left? left? #:left-fg left-fg #:left-bg left-bg #:left-char left-char
+               #:right? right? #:right-fg right-fg #:right-bg right-bg #:right-char right-char)))
 
 ;; Empty indicators render their configured placeholder inside the same boundaries.
 (define (with-arcs spans
