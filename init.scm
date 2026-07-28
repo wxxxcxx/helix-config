@@ -26,8 +26,11 @@
 
 ;; ── Keybindings ─────────────────────────────────────────────────
 (require "cogs/file-explorer.scm")
+(require "cogs/file-tree.scm")
+(file-tree-init)
 (helix.keymaps.keymap (global)
-  (normal (space (e ":file-explorer-open"))))
+  (normal (space (e ":file-explorer-open")
+                 (t ":file-tree-open"))))
 
 ;; ── Input source switching ──────────────────────────────────────
 (require "cogs/input-source/input-source.scm")

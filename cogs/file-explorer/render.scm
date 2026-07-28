@@ -1,8 +1,8 @@
 (require "helix/components.scm")
 (require "cogs/glyph/glyph.scm")
 (require "cogs/file-colors.scm")
-(require "cogs/file-explorer/files.scm")
-(require "cogs/file-explorer/bookmarks.scm")
+(require "cogs/file-manager/files.scm")
+(require "cogs/file-manager/bookmarks.scm")
 
 (provide make-file-explorer-render)
 

@@ -1,8 +1,8 @@
 (require "helix/components.scm")
 (require "helix/misc.scm")
-(require "cogs/file-explorer/files.scm")
+(require "cogs/file-manager/files.scm")
 
-(provide fe-prompt!)
+(provide fm-prompt!)
 
 (struct FeModalState ())
 
@@ -74,12 +74,12 @@
   (set! *fe-modal-label* label)
   (set! *fe-modal-buffer* initial-value)
   (set! *fe-modal-callback* callback)
-  (push-component! (new-component! "file-explorer-modal"
+  (push-component! (new-component! "file-manager-modal"
                                   (FeModalState)
                                   fe-modal-render
                                   (hash "handle_event" fe-modal-handle-event
                                         "cursor" fe-modal-cursor))))
 
-(define (fe-prompt! mode label initial-value callback)
+(define (fm-prompt! mode label initial-value callback)
   (enqueue-thread-local-callback
     (lambda () (fe-show-modal! mode label initial-value callback))))

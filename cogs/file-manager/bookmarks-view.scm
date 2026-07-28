@@ -1,7 +1,7 @@
 (require "helix/components.scm")
 (require "helix/misc.scm")
-(require "cogs/file-explorer/files.scm")
-(require "cogs/file-explorer/bookmarks.scm")
+(require "cogs/file-manager/files.scm")
+(require "cogs/file-manager/bookmarks.scm")
 
 (provide fe-bookmarks-view!)
 
