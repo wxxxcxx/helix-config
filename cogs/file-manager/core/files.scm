@@ -193,6 +193,18 @@
           [else (fm-member value (cdr values))]))
   (fm-member ext text-exts))
 
+(define (fm-read-bounded-line port max-width)
+  (let loop ([remaining (max 1 max-width)] [result ""] [seen? #f])
+    (let ([ch (read-char port)])
+      (cond
+        [(eof-object? ch) (and seen? (cons result #t))]
+        [(char=? ch #\newline) (cons result #f)]
+        [(char=? ch #\return) (loop remaining result seen?)]
+        [(<= remaining 1)
+         (cons (fm-fit-text (string-append result "…") max-width) #t)]
+        [else
+         (loop (- remaining 1) (string-append result (string ch)) #t)]))))
+
 (define (fm-read-preview path max-lines max-width)
   (cond
     [(is-dir? path)
@@ -206,11 +218,13 @@
          (let loop ([remaining max-lines] [result '()])
            (if (<= remaining 0)
                (reverse result)
-               (let ([line (read-line port)])
-                 (if (eof-object? line)
+               (let ([line (fm-read-bounded-line port max-width)])
+                 (if (not line)
                      (reverse result)
-                     (loop (- remaining 1)
-                           (cons (fm-fit-text line max-width) result)))))))
+                     (let ([next-result (cons (car line) result)])
+                       (if (cdr line)
+                           (reverse next-result)
+                           (loop (- remaining 1) next-result))))))))
        (close-port port)
        lines)]
     [else (list (string-append "  [" (fm-format-size path) "]"))]))

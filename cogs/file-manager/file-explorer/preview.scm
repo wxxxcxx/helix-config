@@ -14,7 +14,7 @@
       (FePreview path
                  (is-dir? path)
                  (cond [(is-dir? path) (fm-read-dir-names path show-hidden?)]
-                       [(fm-is-text-ext? path) (fm-read-preview path 200 4096)]
+                       [(fm-is-text-ext? path) (fm-read-preview path 200 256)]
                        [else '()])
                  (fm-preview-footer path))))
 
