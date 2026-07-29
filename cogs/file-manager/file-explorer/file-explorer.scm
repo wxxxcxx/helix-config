@@ -3,15 +3,18 @@
 (require "helix/editor.scm")
 (require (only-in "helix/static.scm" cx->current-file))
 (require (prefix-in helix. "helix/commands.scm"))
-(require "cogs/file-explorer/config.scm")
-(require "cogs/file-manager/bookmarks.scm")
-(require "cogs/file-manager/bookmarks-view.scm")
-(require "cogs/file-manager/files.scm")
-(require "cogs/file-manager/actions.scm")
-(require "cogs/file-manager/modal.scm")
-(require "cogs/file-manager/keymap.scm")
-(require "cogs/file-manager/which-key.scm")
-(require "cogs/file-explorer/render.scm")
+(require "cogs/file-manager/file-explorer/config.scm")
+(require "cogs/file-manager/file-explorer/bookmarks.scm")
+(require "cogs/file-manager/file-explorer/bookmarks-view.scm")
+(require "cogs/file-manager/file-explorer/preview.scm")
+(require "cogs/file-manager/core/files.scm")
+(require "cogs/file-manager/core/actions.scm")
+(require "cogs/file-manager/core/session.scm")
+(require "cogs/file-manager/core/modal.scm")
+(require "cogs/file-manager/core/action-registry.scm")
+(require "cogs/file-manager/core/keymap.scm")
+(require "cogs/file-manager/core/which-key.scm")
+(require "cogs/file-manager/file-explorer/render.scm")
 
 (provide file-explorer-configure! file-explorer-open file-explorer-close)
 
@@ -31,9 +34,8 @@
 (define *fe-parent-cursor* 0)
 (define *fe-scrolls* (hash))
 (define *fe-parent-scrolls* (hash))
-(define *fe-marked* '())
-(define *fe-clipboard* '())
-(define *fe-clipboard-mode* #f)
+(define *fe-session* (fm-session-empty))
+(define *fe-preview* (fe-preview-empty))
 (define *fe-filter-query* "")
 (define *fe-filter-before-input* "")
 (define *fe-find-query* "")
@@ -42,7 +44,6 @@
 (define *fe-pending-action* #f)
 (define *fe-key-prefix* "")
 (define *fe-help-visible?* #f)
-(define *fe-copy-register* #\+)
 (define *fe-bookmarks* '())
 
 ;; The renderer only reads this snapshot and reports its usable height.
@@ -54,14 +55,15 @@
         [(equal? key 'col-scroll) *fe-col-scroll*]
         [(equal? key 'show-hidden) *fe-show-hidden*]
         [(equal? key 'parent-cursor) *fe-parent-cursor*]
-        [(equal? key 'marked) *fe-marked*]
-        [(equal? key 'clipboard) *fe-clipboard*]
-        [(equal? key 'clipboard-mode) *fe-clipboard-mode*]
+        [(equal? key 'marked) (fm-session-marked *fe-session*)]
+        [(equal? key 'clipboard) (fm-session-clipboard *fe-session*)]
+        [(equal? key 'clipboard-mode) (fm-session-mode *fe-session*)]
         [(equal? key 'filter-query) *fe-filter-query*]
         [(equal? key 'filtering?) (equal? *fe-pending-action* 'filter)]
         [(equal? key 'sort-mode) *fe-sort-mode*]
         [(equal? key 'sort-reverse?) *fe-sort-reverse?*]
         [(equal? key 'bookmarks) *fe-bookmarks*]
+        [(equal? key 'preview) *fe-preview*]
         [else #f]))
 
 (define (fe-state-set! key value)
@@ -74,8 +76,10 @@
 (define (fe-render state rect frame)
   (fe-render-base state rect frame)
   (if *fe-help-visible?*
-      (fm-which-key-help-render! "File Explorer" (fe-config-ref 'keybindings) rect frame)
-      (fm-which-key-render! (fe-config-ref 'keybindings) *fe-key-prefix* rect frame)))
+      (fm-which-key-help-render! "File Explorer" (fe-config-ref 'keybindings)
+                                 *fe-actions* rect frame)
+      (fm-which-key-render! (fe-config-ref 'keybindings) *fe-actions*
+                            *fe-key-prefix* rect frame)))
 
 ;; ── Key dispatch ───────────────────────────────────────────────
 
@@ -86,7 +90,7 @@
 (define (fe-entry-index entries name)
   (let loop ([items entries] [index 0])
     (cond [(null? items) 0]
-          [(string=? (fe-entry-label (car items)) name) index]
+          [(string=? (fm-entry-label (car items)) name) index]
           [else (loop (cdr items) (+ index 1))])))
 
 (define (fe-path-index entries path)
@@ -96,7 +100,7 @@
           [else (loop (cdr items) (+ index 1))])))
 
 (define (fe-parent-idx)
-  (fe-entry-index *fe-parent-files* (fe-entry-label *fe-path*)))
+  (fe-entry-index *fe-parent-files* (fm-entry-label *fe-path*)))
 
 (define (fe-scrolloff)
   (define configured (with-handler (lambda (_) 3) (car (helix.get-option '(scrolloff)))))
@@ -129,12 +133,12 @@
   (or (hash-try-get *fe-parent-scrolls* dir) 0))
 
 (define (fe-show-hidden?)
-  (or *fe-show-hidden* (fe-config-ref 'show-hidden)))
+  *fe-show-hidden*)
 
 (define (fe-rebuild-visible-files!)
-  (set! *fe-parent-files* (fe-sort-entries *fe-all-parent-files* *fe-sort-mode* *fe-sort-reverse?*))
+  (set! *fe-parent-files* (fm-sort-entries *fe-all-parent-files* *fe-sort-mode* *fe-sort-reverse?*))
   (set! *fe-files*
-        (fe-sort-entries (fe-filter-entries *fe-all-files* *fe-filter-query*)
+        (fm-sort-entries (fm-filter-entries *fe-all-files* *fe-filter-query*)
                          *fe-sort-mode*
                          *fe-sort-reverse?*)))
 
@@ -153,16 +157,17 @@
 (define (fe-load-directory! dir)
   (set! *fe-path* dir)
   (set! *fe-all-parent-files*
-        (if (fe-windows-drives-root? dir)
+        (if (fm-windows-drives-root? dir)
             '()
-            (fe-read-dir-names (fe-parent-dir dir) (fe-show-hidden?))))
-  (set! *fe-all-files* (fe-read-dir-names dir (fe-show-hidden?)))
+            (fm-read-dir-names (fm-parent-dir dir) (fe-show-hidden?))))
+  (set! *fe-all-files* (fm-read-dir-names dir (fe-show-hidden?)))
   (fe-rebuild-visible-files!)
   (set! *fe-parent-cursor* (fe-parent-idx))
   (set! *fe-cursor-row* (min (fe-load-cursor dir) (max 0 (- (length *fe-files*) 1))))
   (set! *fe-col-scroll*
         (vector (fe-scroll-to-visible (fe-load-parent-scroll dir) *fe-parent-cursor* (length *fe-parent-files*))
-                (fe-scroll-to-visible (fe-load-scroll dir) *fe-cursor-row* (length *fe-files*)))))
+                (fe-scroll-to-visible (fe-load-scroll dir) *fe-cursor-row* (length *fe-files*))))
+  (fe-refresh-preview!))
 
 (define (fe-enter-dir dir)
   (let ([old-path *fe-path*])
@@ -176,12 +181,16 @@
       (list-ref *fe-files* *fe-cursor-row*)
       #f))
 
+(define (fe-refresh-preview!)
+  (set! *fe-preview* (fe-preview-load (fe-current-entry) (fe-show-hidden?))))
+
 (define (fe-select-entry! path)
   (define index (fe-path-index *fe-files* path))
   (when index
     (set! *fe-cursor-row* index)
     (vector-set! *fe-col-scroll* 1
-                 (fe-scroll-to-visible (vector-ref *fe-col-scroll* 1) index (length *fe-files*)))))
+                 (fe-scroll-to-visible (vector-ref *fe-col-scroll* 1) index (length *fe-files*)))
+    (fe-refresh-preview!)))
 
 (define (fe-open-file! entry mode)
   (enqueue-thread-local-callback
@@ -205,21 +214,22 @@
 (define (fe-do-open-hsplit) (fe-do-open-as 'hsplit))
 
 (define (fe-do-parent)
-  (define parent (fe-parent-dir *fe-path*))
+  (define parent (fm-parent-dir *fe-path*))
   (cond
-    [(fe-windows-drive-root? *fe-path*)
+    [(fm-windows-drive-root? *fe-path*)
      (fe-enter-dir "")
      event-result/consume]
-    [(or (fe-windows-drives-root? *fe-path*)
+    [(or (fm-windows-drives-root? *fe-path*)
          (string=? parent "")
          (equal? parent *fe-path*))
      event-result/consume]
     [else
-     (let ([child-name (fe-entry-label *fe-path*)])
+     (let ([child-name (fm-entry-label *fe-path*)])
        (fe-enter-dir parent)
        (set! *fe-cursor-row* (fe-entry-index *fe-files* child-name))
        (vector-set! *fe-col-scroll* 1
                     (fe-scroll-to-visible (vector-ref *fe-col-scroll* 1) *fe-cursor-row* (length *fe-files*)))
+       (fe-refresh-preview!)
        event-result/consume)]))
 
 (define (fe-move-selection delta)
@@ -227,18 +237,20 @@
   (define next (min max-index (max 0 (+ *fe-cursor-row* delta))))
   (set! *fe-cursor-row* next)
   (vector-set! *fe-col-scroll* 1
-               (fe-scroll-to-visible (vector-ref *fe-col-scroll* 1) next (length *fe-files*))))
+               (fe-scroll-to-visible (vector-ref *fe-col-scroll* 1) next (length *fe-files*)))
+  (fe-refresh-preview!))
 
 (define (fe-do-down) (fe-move-selection 1) event-result/consume)
 (define (fe-do-up) (fe-move-selection -1) event-result/consume)
 
 (define (fe-reload!)
   (define selected-path (fe-current-entry))
-  (fe-clear-preview-footer-cache!)
-  (set! *fe-all-parent-files* (fe-read-dir-names (fe-parent-dir *fe-path*) (fe-show-hidden?)))
-  (set! *fe-all-files* (fe-read-dir-names *fe-path* (fe-show-hidden?)))
+  (fm-clear-preview-footer-cache!)
+  (set! *fe-all-parent-files* (fm-read-dir-names (fm-parent-dir *fe-path*) (fe-show-hidden?)))
+  (set! *fe-all-files* (fm-read-dir-names *fe-path* (fe-show-hidden?)))
   (fe-rebuild-visible-files!)
-  (fe-restore-selection! selected-path))
+  (fe-restore-selection! selected-path)
+  (fe-refresh-preview!))
 
 (define (fe-do-toggle-hidden)
   (set! *fe-show-hidden* (not *fe-show-hidden*))
@@ -251,7 +263,8 @@
 (define (fe-apply-visible-list!)
   (define selected-path (fe-current-entry))
   (fe-rebuild-visible-files!)
-  (fe-restore-selection! selected-path))
+  (fe-restore-selection! selected-path)
+  (fe-refresh-preview!))
 
 (define (fe-do-filter)
   (set! *fe-filter-before-input* *fe-filter-query*)
@@ -277,7 +290,7 @@
   event-result/consume)
 
 (define (fe-entry-matches? entry query)
-  (not (null? (fe-filter-entries (list entry) query))))
+  (not (null? (fm-filter-entries (list entry) query))))
 
 (define (fe-wrapped-index index count)
   (cond [(< index 0) (+ index count)]
@@ -295,7 +308,8 @@
              (vector-set! *fe-col-scroll* 1
                           (fe-scroll-to-visible (vector-ref *fe-col-scroll* 1)
                                                 index
-                                                (length *fe-files*)))]
+                                                (length *fe-files*)))
+             (fe-refresh-preview!)]
             [else
              (loop (fe-wrapped-index (+ index direction) (length *fe-files*))
                    (- remaining 1))]))))
@@ -371,7 +385,7 @@
     [(not (path-exists? path))
      #f]
     [else
-     (define parent (fe-parent-dir path))
+     (define parent (fm-parent-dir path))
      (fe-enter-dir parent)
      (unless (string=? parent path)
        (fe-select-entry! path))
@@ -401,53 +415,38 @@
         [(equal? value (car values)) #t]
         [else (fe-member? value (cdr values))]))
 
-(define (fe-remove value values)
-  (cond [(null? values) '()]
-        [(equal? value (car values)) (fe-remove value (cdr values))]
-        [else (cons (car values) (fe-remove value (cdr values)))]))
-
-(define (fe-replace value replacement values)
-  (cond [(null? values) '()]
-        [(equal? value (car values)) (cons replacement (fe-replace value replacement (cdr values)))]
-        [else (cons (car values) (fe-replace value replacement (cdr values)))]))
-
-(define (fe-marked? path) (fe-member? path *fe-marked*))
+(define (fe-marked? path) (fe-member? path (fm-session-marked *fe-session*)))
 
 (define (fe-operation-targets)
   (define current (fe-current-entry))
-  (if (null? *fe-marked*)
+  (if (null? (fm-session-marked *fe-session*))
       (if current (list current) '())
-      *fe-marked*))
+      (fm-session-marked *fe-session*)))
 
 (define (fe-operation-count paths) (int->string (length paths)))
 
 (define (fe-do-mark)
   (define entry (fe-current-entry))
   (when entry
-    (set! *fe-marked* (if (fe-marked? entry) (fe-remove entry *fe-marked*) (cons entry *fe-marked*)))
+    (set! *fe-session* (fm-session-toggle-mark *fe-session* entry))
     (fe-move-selection 1))
   event-result/consume)
 
 (define (fe-clear-yank!)
-  (set! *fe-clipboard* '())
-  (set! *fe-clipboard-mode* #f))
+  (set! *fe-session* (fm-session-clear-clipboard *fe-session*)))
 
 (define (fe-remove-yanked-paths! paths)
-  (for-each (lambda (path) (set! *fe-clipboard* (fe-remove path *fe-clipboard*))) paths)
-  (when (null? *fe-clipboard*) (set! *fe-clipboard-mode* #f)))
+  (set! *fe-session* (fm-session-complete-paths *fe-session* paths)))
 
 (define (fe-reconcile-renamed-path! old-path new-path)
-  (set! *fe-marked* (fe-replace old-path new-path *fe-marked*))
-  (set! *fe-clipboard* (fe-replace old-path new-path *fe-clipboard*))
+  (set! *fe-session* (fm-session-replace-path *fe-session* old-path new-path))
   (set! *fe-bookmarks* (fe-bookmark-replace *fe-bookmarks* old-path new-path))
   (fe-bookmark-save!))
 
 (define (fe-stage-operation! mode)
   (define paths (fe-operation-targets))
   (when (not (null? paths))
-    (set! *fe-clipboard* paths)
-    (set! *fe-clipboard-mode* mode)
-    (set! *fe-marked* '())
+    (set! *fe-session* (fm-session-stage *fe-session* mode paths))
     (set-warning! (string-append (if (equal? mode 'copy) "yank" "cut")
                                  ": " (fe-operation-count paths) " item(s) ready"))))
 
@@ -461,10 +460,10 @@
         (lambda (err)
           (set-warning! (string-append "copy " label " failed: " (error-object-message err))))
         (begin
-          (set-register! *fe-copy-register* (list value))
+          (set-register! (fm-session-register *fe-session*) (list value))
           (set-warning! (string-append "copied " label ": " value))))
       (set-warning! "copy: no entry selected"))
-  (set! *fe-copy-register* #\+)
+  (set! *fe-session* (fm-session-reset-register *fe-session*))
   event-result/consume)
 
 (define (fe-relative-path path)
@@ -488,7 +487,7 @@
 (define (fe-do-copy-filename)
   (define entry (fe-current-entry))
   (if entry
-      (fe-copy-current! (fe-base-name entry) "filename")
+      (fe-copy-current! (fm-base-name entry) "filename")
       (set-warning! "copy: no entry selected"))
   event-result/consume)
 
@@ -497,7 +496,7 @@
   (set! *fe-pending-action* #f)
   (if (char? register)
       (begin
-        (set! *fe-copy-register* register)
+        (set! *fe-session* (fm-session-with-register *fe-session* register))
         (set-warning! (string-append "register " (string register) ": ya=absolute yr=relative yn=filename")))
       (set-warning! "register: enter a register name"))
   event-result/consume)
@@ -508,12 +507,14 @@
   event-result/consume)
 
 (define (fe-paste! force?)
-  (when (and *fe-clipboard-mode* (not (null? *fe-clipboard*)))
+  (when (and (fm-session-mode *fe-session*)
+             (not (null? (fm-session-clipboard *fe-session*))))
     (with-handler
       (lambda (err) (set-warning! (string-append "paste failed: " (error-object-message err))))
       (begin
-        (fm-paste! *fe-clipboard-mode* *fe-clipboard* *fe-path* force?)
-        (when (equal? *fe-clipboard-mode* 'move) (fe-clear-yank!))
+        (fm-paste! (fm-session-mode *fe-session*)
+                   (fm-session-clipboard *fe-session*) *fe-path* force?)
+        (when (equal? (fm-session-mode *fe-session*) 'move) (fe-clear-yank!))
         (fe-reload!)))))
 
 (define (fe-do-paste) (fe-paste! #f) event-result/consume)
@@ -523,7 +524,7 @@
 (define (fe-rename-paths! paths)
   (when (not (null? paths))
     (define entry (car paths))
-    (define old-name (fe-base-name entry))
+    (define old-name (fm-base-name entry))
     (fm-prompt! 'input "Rename: " old-name
                 (lambda (new-name)
                   (when (and (not (string=? new-name old-name)) (fm-valid-name? new-name))
@@ -563,7 +564,6 @@
                       (lambda (err) (set-warning! (string-append "trash failed: " (error-object-message err))))
                       (begin
                         (for-each fm-trash! paths)
-                        (set! *fe-marked* '())
                         (fe-remove-yanked-paths! paths)
                         (fe-prune-bookmarks!)
                         (fe-reload!)))))))
@@ -579,7 +579,6 @@
                       (lambda (err) (set-warning! (string-append "delete failed: " (error-object-message err))))
                       (begin
                         (for-each fm-delete! paths)
-                        (set! *fe-marked* '())
                         (fe-remove-yanked-paths! paths)
                         (fe-prune-bookmarks!)
                         (fe-reload!)))))))
@@ -591,41 +590,51 @@
   (set! *fe-help-visible?* #t)
   event-result/consume)
 
+;;@doc
+;; Close file explorer.
+(define (fe-do-quit)
+  (file-explorer-close)
+  event-result/close)
+
+(define *fe-actions*
+  (fm-make-action-registry
+    (list
+      (list 'quit fe-do-quit)
+      (list 'down fe-do-down "Next entry")
+      (list 'up fe-do-up "Previous entry")
+      (list 'open fe-do-open "Open selected entry")
+      (list 'open-normal fe-do-open "Open")
+      (list 'open-close fe-do-open "Open and close explorer")
+      (list 'open-vsplit fe-do-open-vsplit "Open in vertical split")
+      (list 'open-hsplit fe-do-open-hsplit "Open in horizontal split")
+      (list 'parent fe-do-parent "Parent directory")
+      (list 'mark fe-do-mark "Mark entry")
+      (list 'copy fe-do-copy "Stage filesystem copy")
+      (list 'copy-absolute fe-do-copy-absolute "Copy absolute path")
+      (list 'copy-relative fe-do-copy-relative "Copy relative path")
+      (list 'copy-filename fe-do-copy-filename "Copy filename")
+      (list 'copy-register fe-do-copy-register "Select copy register")
+      (list 'bookmarks fe-do-bookmarks "Bookmarks")
+      (list 'move fe-do-move "Stage filesystem move")
+      (list 'paste fe-do-paste "Paste")
+      (list 'paste-force fe-do-paste-force "Paste and overwrite")
+      (list 'unyank fe-do-unyank "Clear staged operation")
+      (list 'trash fe-do-trash "Move to trash")
+      (list 'delete fe-do-delete "Delete permanently")
+      (list 'rename fe-do-rename "Rename")
+      (list 'create-file fe-do-create-file "Create file")
+      (list 'create-dir fe-do-create-dir "Create directory")
+      (list 'toggle-hidden fe-do-toggle-hidden "Toggle hidden files")
+      (list 'filter fe-do-filter "Live filter")
+      (list 'find fe-do-find "Find")
+      (list 'find-next fe-do-find-next "Find next")
+      (list 'find-previous fe-do-find-previous "Find previous")
+      (list 'sort fe-do-sort "Sort")
+      (list 'refresh fe-do-refresh "Refresh")
+      (list 'help fe-show-help "Show key bindings"))))
+
 (define (fe-run-action action)
-  (cond [(string=? action "quit") (file-explorer-close) event-result/close]
-        [(string=? action "down") (fe-do-down)]
-        [(string=? action "up") (fe-do-up)]
-        [(string=? action "open") (fe-do-open)]
-        [(string=? action "open-normal") (fe-do-open)]
-        [(string=? action "open-close") (fe-do-open)]
-        [(string=? action "open-vsplit") (fe-do-open-vsplit)]
-        [(string=? action "open-hsplit") (fe-do-open-hsplit)]
-        [(string=? action "parent") (fe-do-parent)]
-        [(string=? action "mark") (fe-do-mark)]
-        [(string=? action "copy") (fe-do-copy)]
-        [(string=? action "copy-absolute") (fe-do-copy-absolute)]
-        [(string=? action "copy-relative") (fe-do-copy-relative)]
-        [(string=? action "copy-filename") (fe-do-copy-filename)]
-        [(string=? action "copy-register") (fe-do-copy-register)]
-        [(string=? action "bookmarks") (fe-do-bookmarks)]
-        [(string=? action "move") (fe-do-move)]
-        [(string=? action "paste") (fe-do-paste)]
-        [(string=? action "paste-force") (fe-do-paste-force)]
-        [(string=? action "unyank") (fe-do-unyank)]
-        [(string=? action "trash") (fe-do-trash)]
-        [(string=? action "delete") (fe-do-delete)]
-        [(string=? action "rename") (fe-do-rename)]
-        [(string=? action "create-file") (fe-do-create-file)]
-        [(string=? action "create-dir") (fe-do-create-dir)]
-        [(string=? action "toggle-hidden") (fe-do-toggle-hidden)]
-        [(string=? action "filter") (fe-do-filter)]
-        [(string=? action "find") (fe-do-find)]
-        [(string=? action "find-next") (fe-do-find-next)]
-        [(string=? action "find-previous") (fe-do-find-previous)]
-        [(string=? action "sort") (fe-do-sort)]
-        [(string=? action "refresh") (fe-do-refresh)]
-        [(string=? action "help") (fe-show-help)]
-        [else event-result/consume]))
+  (fm-action-run *fe-actions* action event-result/consume))
 
 (define (fe-handle-mapped-key event)
   (define result (fm-key-step (fe-config-ref 'keybindings) *fe-key-prefix* event))
@@ -642,7 +651,7 @@
          event-result/consume]
         [else
          (when (and (not (string=? *fe-key-prefix* ""))
-                    (not (fm-which-key-active? (fe-config-ref 'keybindings)
+                    (not (fm-which-key-active? (fe-config-ref 'keybindings) *fe-actions*
                                                *fe-key-prefix*)))
            (set-warning! (string-append "unknown key sequence: " value)))
          (set! *fe-key-prefix* "")
@@ -664,9 +673,9 @@
          (begin
            (set! *fe-pending-action* #f)
            (set! *fe-key-prefix* "")
-           (when (not (null? *fe-marked*))
-             (set! *fe-marked* '()))))
-     (set! *fe-copy-register* #\+)
+           (when (not (null? (fm-session-marked *fe-session*)))
+             (set! *fe-session* (fm-session-clear-marks *fe-session*)))))
+     (set! *fe-session* (fm-session-reset-register *fe-session*))
      event-result/consume]
     [(equal? *fe-pending-action* 'filter) (fe-do-filter-key event)]
     [(equal? *fe-pending-action* 'sort) (fe-do-sort-key event)]
@@ -682,12 +691,15 @@
   (set! *fe-pending-action* #f)
   (set! *fe-key-prefix* "")
   (set! *fe-help-visible?* #f)
-  (set! *fe-copy-register* #\+)
+  (set! *fe-session* (fm-session-empty))
+  (set! *fe-preview* (fe-preview-empty))
+  (set! *fe-show-hidden* (fe-config-ref 'show-hidden))
   (set! *fe-bookmarks* (fe-bookmarks-load))
   (fe-prune-bookmarks!)
   (set! *fe-workspace-root* (helix-find-workspace))
+  (fm-keymap-validate! (fe-config-ref 'keybindings) *fe-actions*)
   (define current-file (with-handler (lambda (_) #f) (cx->current-file)))
-  (fe-load-directory! (if current-file (fe-parent-dir current-file) *fe-workspace-root*))
+  (fe-load-directory! (if current-file (fm-parent-dir current-file) *fe-workspace-root*))
   (when current-file (fe-select-entry! current-file))
   (push-component! (new-component! "file-explorer" (hash) fe-render
                                   (hash "handle_event" fe-handle-event))))

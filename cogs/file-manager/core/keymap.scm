@@ -1,11 +1,12 @@
 (require "helix/components.scm")
+(require "cogs/file-manager/core/action-registry.scm")
 
 (provide fm-keymap-merge
          fm-key-token fm-key-step fm-key-result-kind fm-key-result-value
          fm-prefix-menu-entries fm-key-overview-entries
-         fm-prefix-description)
+         fm-prefix-description fm-keymap-validate!)
 
-;; Leaf: "action" or '(action description). Prefix: (list child-keymap description).
+;; Leaf: 'action or '(action description). Prefix: (list child-keymap description).
 
 (define (fm-key-modifier? event modifier)
   (define value (or (key-event-modifier event) 0))
@@ -33,11 +34,21 @@
 (define (fm-prefix-node? value)
   (and (list? value) (not (null? value)) (hash? (car value))))
 
-(define (fm-node-description value)
-  (if (string? value) value (list-ref value 1)))
+(define (fm-action-node? value)
+  (or (symbol? value)
+      (string? value)
+      (and (list? value)
+           (= (length value) 2)
+           (or (symbol? (car value)) (string? (car value)))
+           (string? (list-ref value 1)))))
+
+(define (fm-node-description value actions)
+  (cond [(or (symbol? value) (string? value))
+         (fm-action-description actions value)]
+        [else (list-ref value 1)]))
 
 (define (fm-node-action value)
-  (if (string? value) value (car value)))
+  (if (or (symbol? value) (string? value)) value (car value)))
 
 (define (fm-string-tokens value)
   (let loop ([start 0] [index 0] [tokens '()])
@@ -65,26 +76,26 @@
 
 (define (fm-entry<? left right) (string<? (car left) (car right)))
 
-(define (fm-node-entries node)
+(define (fm-node-entries node actions)
   (sort
     (map (lambda (key)
-           (list key (fm-node-description (hash-get node key))))
+           (list key (fm-node-description (hash-get node key) actions)))
          (hash-keys->list node))
     fm-entry<?))
 
-(define (fm-prefix-menu-entries keymap prefix)
+(define (fm-prefix-menu-entries keymap actions prefix)
   (define value (fm-keymap-value keymap prefix))
   (if (and value (fm-prefix-node? value))
-      (fm-node-entries (car value))
+      (fm-node-entries (car value) actions)
       '()))
 
-(define (fm-key-overview-entries keymap)
-  (fm-node-entries keymap))
+(define (fm-key-overview-entries keymap actions)
+  (fm-node-entries keymap actions))
 
 (define (fm-prefix-description keymap prefix)
   (define value (fm-keymap-value keymap prefix))
   (if (and value (fm-prefix-node? value))
-      (fm-node-description value)
+      (list-ref value 1)
       (string-append "Keys: " prefix)))
 
 (define (fm-merge-keymap-node base overrides)
@@ -98,12 +109,34 @@
                 (if (and current (fm-prefix-node? current)
                          (fm-prefix-node? override))
                     (list (fm-merge-keymap-node (car current) (car override))
-                          (fm-node-description override))
+                          (list-ref override 1))
                     override)])
           (loop (cdr keys) (hash-insert result key value))))))
 
 (define (fm-keymap-merge base overrides)
   (fm-merge-keymap-node base overrides))
+
+(define (fm-keymap-validate! keymap actions)
+  (define (validate-node node prefix)
+    (unless (hash? node)
+      (error! (string-append "file-manager: keymap node is not a hash: " prefix)))
+    (for-each
+      (lambda (key)
+        (define value (hash-get node key))
+        (define sequence (if (string=? prefix "") key (string-append prefix " " key)))
+        (cond [(fm-prefix-node? value)
+               (unless (and (= (length value) 2) (string? (list-ref value 1)))
+                 (error! (string-append "file-manager: invalid prefix: " sequence)))
+               (validate-node (car value) sequence)]
+              [(fm-action-node? value)
+               (unless (fm-action-known? actions (fm-node-action value))
+                 (error! (string-append "file-manager: unknown action at " sequence ": "
+                                        (to-string (fm-node-action value)))))]
+              [else
+               (error! (string-append "file-manager: invalid key binding: " sequence))]))
+      (hash-keys->list node)))
+  (validate-node keymap "")
+  #t)
 
 ;; Returns '(action name), '(prefix sequence), '(cancel #f), or '(invalid sequence).
 (define (fm-key-step keymap prefix event)

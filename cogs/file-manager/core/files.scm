@@ -1,28 +1,28 @@
 (require "helix/misc.scm")
 
-(provide fe-take fe-drop
-         fe-base-name fe-entry-label fe-path-label fe-parent-dir fe-read-dir-names
-         fe-windows-drive-root? fe-windows-drives-root?
-         fe-filter-entries fe-sort-entries fe-format-size
-         fe-file-ext fe-is-text-ext? fe-read-preview fe-preview-footer fe-clear-preview-footer-cache!
-         fe-display-width fe-fit-text
-         fe-calc-layout fe-calc-col-widths
+(provide fm-take fm-drop
+         fm-base-name fm-entry-label fm-path-label fm-parent-dir fm-read-dir-names
+         fm-windows-drive-root? fm-windows-drives-root?
+         fm-filter-entries fm-sort-entries fm-format-size
+         fm-file-ext fm-is-text-ext? fm-read-preview fm-preview-footer fm-clear-preview-footer-cache!
+         fm-display-width fm-fit-text
+         fm-calc-layout fm-calc-col-widths
          BORDER-H BORDER-V BORDER-TL BORDER-TR BORDER-BL BORDER-BR
          BORDER-LT BORDER-RT BORDER-TC border-h)
 
-(define (fe-take lst n)
-  (if (or (null? lst) (<= n 0)) '() (cons (car lst) (fe-take (cdr lst) (- n 1)))))
+(define (fm-take lst n)
+  (if (or (null? lst) (<= n 0)) '() (cons (car lst) (fm-take (cdr lst) (- n 1)))))
 
-(define (fe-drop lst n)
-  (if (or (null? lst) (<= n 0)) lst (fe-drop (cdr lst) (- n 1))))
+(define (fm-drop lst n)
+  (if (or (null? lst) (<= n 0)) lst (fm-drop (cdr lst) (- n 1))))
 
-(define (fe-base-name path) (file-name path))
-(define (fe-parent-dir path) (parent-name path))
+(define (fm-base-name path) (file-name path))
+(define (fm-parent-dir path) (parent-name path))
 
-(define (fe-windows-drives-root? path)
+(define (fm-windows-drives-root? path)
   (and (equal? (current-os!) "windows") (string=? path "")))
 
-(define (fe-windows-drive-root? path)
+(define (fm-windows-drive-root? path)
   (and (equal? (current-os!) "windows")
        (>= (string-length path) 2)
        (char=? (string-ref path 1) #\:)
@@ -31,29 +31,29 @@
                 (or (char=? (string-ref path 2) #\\)
                     (char=? (string-ref path 2) #\/))))))
 
-(define (fe-entry-label path)
-  (if (fe-windows-drive-root? path)
+(define (fm-entry-label path)
+  (if (fm-windows-drive-root? path)
       (substring path 0 2)
-      (fe-base-name path)))
+      (fm-base-name path)))
 
-(define (fe-path-label path)
-  (if (fe-windows-drives-root? path) "Drives" path))
+(define (fm-path-label path)
+  (if (fm-windows-drives-root? path) "Drives" path))
 
-(define (fe-read-dir path)
+(define (fm-read-dir path)
   (with-handler (lambda (_) '()) (read-dir path)))
 
-(define *fe-preview-footer-cache* (hash))
+(define *fm-preview-footer-cache* (hash))
 
-(define (fe-capture-output program args)
+(define (fm-capture-output program args)
   (with-handler
     (lambda (_) #f)
     (let ([proc (~> (command program args) with-stdout-piped spawn-process)])
       (and (Ok? proc)
            (trim (read-port-to-string (child-stdout (Ok->value proc))))))))
 
-(define (fe-windows-drive-paths)
+(define (fm-windows-drive-paths)
   (define output
-    (fe-capture-output
+    (fm-capture-output
       "powershell.exe"
       (list "-NoProfile" "-Command"
             "Get-PSDrive -PSProvider FileSystem | ForEach-Object { $_.Root }")))
@@ -62,81 +62,81 @@
               (map trim (split-many output "\n")))
       '()))
 
-(define (fe-nonempty-strings values)
+(define (fm-nonempty-strings values)
   (filter (lambda (value) (not (string=? value ""))) values))
 
-(define (fe-unix-permissions path)
-  (define raw (fe-capture-output "ls" (list "-ld" path)))
+(define (fm-unix-permissions path)
+  (define raw (fm-capture-output "ls" (list "-ld" path)))
   (if raw
-      (let ([parts (fe-nonempty-strings (split-many raw " "))])
+      (let ([parts (fm-nonempty-strings (split-many raw " "))])
         (if (>= (length parts) 4)
             (string-append (car parts) " " (list-ref parts 2) ":" (list-ref parts 3))
             (if (null? parts) "Mode: unknown" (car parts))))
       "Mode: unknown"))
 
-(define (fe-stat-permissions path)
+(define (fm-stat-permissions path)
   (cond
     [(equal? (current-os!) "windows")
-     (let ([rights (fe-capture-output
+     (let ([rights (fm-capture-output
                      "powershell.exe"
                      (list "-NoProfile" "-Command"
                            "$rights = ((Get-Acl -LiteralPath $args[0]).Access | ForEach-Object { $_.FileSystemRights } | Select-Object -Unique) -join ','; $rights"
                            path))])
        (string-append "ACL: " (or rights "unknown")))]
     [else
-     (fe-unix-permissions path)]))
+     (fm-unix-permissions path)]))
 
-(define (fe-preview-footer path)
-  (if (hash-contains? *fe-preview-footer-cache* path)
-      (hash-get *fe-preview-footer-cache* path)
+(define (fm-preview-footer path)
+  (if (hash-contains? *fm-preview-footer-cache* path)
+      (hash-get *fm-preview-footer-cache* path)
       (let ([size (if (is-dir? path)
-                      (string-append (int->string (length (fe-read-dir path))) " items")
-                      (fe-format-size path))])
-        (define footer (string-append " " (fe-stat-permissions path) "  " size " "))
-        (set! *fe-preview-footer-cache*
-              (hash-insert *fe-preview-footer-cache* path footer))
+                      (string-append (int->string (length (fm-read-dir path))) " items")
+                      (fm-format-size path))])
+        (define footer (string-append " " (fm-stat-permissions path) "  " size " "))
+        (set! *fm-preview-footer-cache*
+              (hash-insert *fm-preview-footer-cache* path footer))
         footer)))
 
-(define (fe-clear-preview-footer-cache!)
-  (set! *fe-preview-footer-cache* (hash)))
+(define (fm-clear-preview-footer-cache!)
+  (set! *fm-preview-footer-cache* (hash)))
 
-(define (fe-dotfile? name)
+(define (fm-dotfile? name)
   (and (> (string-length name) 0) (char=? (string-ref name 0) #\.)))
 
-(define (fe-sort-files entries)
+(define (fm-sort-files entries)
   (define dirs (sort (filter is-dir? entries) string<?))
   (define files (sort (filter (lambda (p) (not (is-dir? p))) entries) string<?))
   (append dirs files))
 
-(define (fe-read-dir-names path show-hidden?)
-  (define entries (if (fe-windows-drives-root? path)
-                      (fe-windows-drive-paths)
-                      (fe-read-dir path)))
-  (fe-sort-files
+(define (fm-read-dir-names path show-hidden?)
+  (define entries (if (fm-windows-drives-root? path)
+                      (fm-windows-drive-paths)
+                      (fm-read-dir path)))
+  (fm-sort-files
     (filter (lambda (p)
-              (let ([name (fe-entry-label p)])
-                (or show-hidden? (not (fe-dotfile? name)))))
+              (let ([name (fm-entry-label p)])
+                (or show-hidden? (not (fm-dotfile? name)))))
             entries)))
 
-(define (fe-filter-entries entries query)
+(define (fm-filter-entries entries query)
   (if (string=? query "")
       entries
       (let ([needle (string-downcase query)])
         (filter (lambda (path)
-                  (string-contains? (string-downcase (fe-entry-label path)) needle))
+                  (string-contains? (string-downcase (fm-entry-label path)) needle))
                 entries))))
 
-(define (fe-entry-size path)
+(define (fm-entry-size path)
   (define meta (with-handler (lambda (_) #f) (file-metadata path)))
   (if meta (fs-metadata-len meta) 0))
 
-(define (fe-size-cache entries)
+(define (fm-size-cache entries)
   (if (null? entries)
       (hash)
-      (hash-insert (fe-size-cache (cdr entries)) (car entries) (fe-entry-size (car entries)))))
+      (hash-insert (fm-size-cache (cdr entries)) (car entries) (fm-entry-size (car entries)))))
 
-(define (fe-sort-entries entries mode reverse?)
-  (define sizes (if (equal? mode 'size) (fe-size-cache entries) (hash)))
+(define (fm-sort-entries entries mode reverse?)
+  (define sizes (if (equal? mode 'size) (fm-size-cache entries) (hash)))
   (define (compare-text left right)
     (if reverse?
         (string<? right left)
@@ -149,19 +149,19 @@
     (cond [(and (is-dir? left) (not (is-dir? right))) #t]
           [(and (not (is-dir? left)) (is-dir? right)) #f]
           [(equal? mode 'extension)
-           (let ([left-ext (fe-file-ext left)] [right-ext (fe-file-ext right)])
+           (let ([left-ext (fm-file-ext left)] [right-ext (fm-file-ext right)])
              (if (string=? left-ext right-ext)
-                 (compare-text (fe-entry-label left) (fe-entry-label right))
+                 (compare-text (fm-entry-label left) (fm-entry-label right))
                  (compare-text left-ext right-ext)))]
           [(equal? mode 'size)
            (let ([left-size (hash-get sizes left)] [right-size (hash-get sizes right)])
              (if (= left-size right-size)
-                 (compare-text (fe-entry-label left) (fe-entry-label right))
+                 (compare-text (fm-entry-label left) (fm-entry-label right))
                  (compare-size left-size right-size)))]
-          [else (compare-text (fe-entry-label left) (fe-entry-label right))]))
+          [else (compare-text (fm-entry-label left) (fm-entry-label right))]))
   (sort entries compare-files))
 
-(define (fe-format-size path)
+(define (fm-format-size path)
   (define meta (with-handler (lambda (_) #f) (file-metadata path)))
   (if meta
       (let ([len (fs-metadata-len meta)])
@@ -170,13 +170,13 @@
               [else            (string-append (int->string (quotient len 1048576)) " MiB")]))
       ""))
 
-(define (fe-file-ext path)
+(define (fm-file-ext path)
   (define parts (split-many path "."))
   (if (> (length parts) 1)
       (list-ref parts (- (length parts) 1))
       ""))
 
-(define (fe-is-text-ext? path)
+(define (fm-is-text-ext? path)
   (define text-exts '(
     "txt" "md" "rs" "py" "js" "ts" "tsx" "jsx" "css"
     "html" "json" "toml" "yaml" "yml" "lua" "scm"
@@ -186,30 +186,36 @@
     "sass" "scss" "less" "ps1" "tf" "sql" "r" "jl"
     "nix" "prisma" "php" "pl" "diff" "vim" "org"
     "lock" "toml" "xml" "conf" "ini" "cfg"))
-  (define ext (fe-file-ext path))
-  (define (fe-member value values)
+  (define ext (fm-file-ext path))
+  (define (fm-member value values)
     (cond [(null? values) #f]
           [(equal? value (car values)) #t]
-          [else (fe-member value (cdr values))]))
-  (fe-member ext text-exts))
+          [else (fm-member value (cdr values))]))
+  (fm-member ext text-exts))
 
-(define (fe-read-preview path max-lines max-width)
+(define (fm-read-preview path max-lines max-width)
   (cond
     [(is-dir? path)
-     (define children (fe-read-dir-names path #t))
-     (fe-take children (min max-lines (length children)))]
-    [(fe-is-text-ext? path)
+     (define children (fm-read-dir-names path #t))
+     (fm-take children (min max-lines (length children)))]
+    [(fm-is-text-ext? path)
      (with-handler
-       (lambda (_) (list (string-append "  [" (fe-format-size path) "]")))
-       (define content (with-handler
-                         (lambda (_) "")
-                         (read-port-to-string (open-input-file path))))
-       (define lines (split-many content "\n"))
-       (define display-lines (fe-take lines (min max-lines (length lines))))
-       (map (lambda (line) (fe-fit-text line max-width)) display-lines))]
-    [else (list (string-append "  [" (fe-format-size path) "]"))]))
+       (lambda (_) (list (string-append "  [" (fm-format-size path) "]")))
+       (define port (open-input-file path))
+       (define lines
+         (let loop ([remaining max-lines] [result '()])
+           (if (<= remaining 0)
+               (reverse result)
+               (let ([line (read-line port)])
+                 (if (eof-object? line)
+                     (reverse result)
+                     (loop (- remaining 1)
+                           (cons (fm-fit-text line max-width) result)))))))
+       (close-port port)
+       lines)]
+    [else (list (string-append "  [" (fm-format-size path) "]"))]))
 
-(define (fe-char-width ch)
+(define (fm-char-width ch)
   (define code (char->integer ch))
   (cond
     ;; Combining marks, variation selectors, and joiners do not occupy a cell.
@@ -238,34 +244,36 @@
      2]
     [else 1]))
 
-(define (fe-display-width text)
+(define (fm-display-width text)
   (let loop ([index 0] [width 0])
     (if (>= index (string-length text))
         width
-        (loop (+ index 1) (+ width (fe-char-width (string-ref text index)))))))
+        (loop (+ index 1) (+ width (fm-char-width (string-ref text index)))))))
 
-(define (fe-fit-text text width)
+(define (fm-fit-text text width)
   (cond [(<= width 0) ""]
-        [(<= (fe-display-width text) width) text]
+        [(<= (fm-display-width text) width) text]
         [(= width 1) "…"]
         [else
          (let loop ([index 0] [used 0])
            (if (or (>= index (string-length text))
-                   (> (+ used (fe-char-width (string-ref text index))) (- width 1)))
+                   (> (+ used (fm-char-width (string-ref text index))) (- width 1)))
                (string-append (substring text 0 index) "…")
                (loop (+ index 1)
-                     (+ used (fe-char-width (string-ref text index))))))]))
+                     (+ used (fm-char-width (string-ref text index))))))]))
 
-(define (fe-calc-layout w h width-pct height-pct)
-  (let* ([box-w (min (max (quotient (* w width-pct) 100) 40) 120)]
-         [box-h (min (max (quotient (* h height-pct) 100) 10) (- h 2))]
+(define (fm-calc-layout w h width-pct height-pct)
+  (let* ([max-w (max 1 w)]
+         [max-h (max 1 h)]
+         [box-w (min max-w (min (max (quotient (* w width-pct) 100) 20) 120))]
+         [box-h (min max-h (max (quotient (* h height-pct) 100) 3))]
          [box-x (quotient (- w box-w) 2)]
          [box-y (quotient (- h box-h) 2)])
     (list box-x box-y box-w box-h)))
 
-(define (fe-calc-col-widths inner-w ratios)
+(define (fm-calc-col-widths inner-w ratios)
   (define total (apply + ratios))
-  (define avail (- inner-w 2))
+  (define avail (max 0 (- inner-w 2)))
   (define left (quotient (* avail (list-ref ratios 0)) total))
   (define middle (quotient (* avail (list-ref ratios 1)) total))
   (define right (- avail left middle))

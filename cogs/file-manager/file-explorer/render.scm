@@ -1,8 +1,9 @@
 (require "helix/components.scm")
 (require "cogs/glyph/glyph.scm")
 (require "cogs/file-colors.scm")
-(require "cogs/file-manager/files.scm")
-(require "cogs/file-manager/bookmarks.scm")
+(require "cogs/file-manager/core/files.scm")
+(require "cogs/file-manager/file-explorer/bookmarks.scm")
+(require "cogs/file-manager/file-explorer/preview.scm")
 
 (provide make-file-explorer-render)
 
@@ -22,12 +23,12 @@
   (lambda (state rect frame)
     (let* ([area-w (area-width rect)]
            [area-h (area-height rect)]
-           [layout (fe-calc-layout area-w area-h (config-ref 'width-pct) (config-ref 'height-pct))]
+           [layout (fm-calc-layout area-w area-h (config-ref 'width-pct) (config-ref 'height-pct))]
            [box-x (list-ref layout 0)]
            [box-y (list-ref layout 1)]
            [box-w (list-ref layout 2)]
            [box-h (list-ref layout 3)]
-           [col-widths (fe-calc-col-widths (- box-w 2) (config-ref 'col-ratios))]
+           [col-widths (fm-calc-col-widths (- box-w 2) (config-ref 'col-ratios))]
            [lw (list-ref col-widths 0)]
            [mw (list-ref col-widths 1)]
            [rw (list-ref col-widths 2)])
@@ -57,7 +58,7 @@
              [filtering? (state-ref 'filtering?)]
              [sort-mode (state-ref 'sort-mode)]
              [sort-reverse? (state-ref 'sort-reverse?)]
-             [show-hidden? (or (state-ref 'show-hidden) (config-ref 'show-hidden))])
+             [preview (state-ref 'preview)])
         (buffer/clear-with frame (area box-x box-y box-w box-h) bg-style)
         (let* ([queue-title (if clipboard-mode
                                 (string-append "[" (if (equal? clipboard-mode 'copy) "yank " "cut ")
@@ -73,16 +74,16 @@
                                                     [(equal? sort-mode 'size) "size"]
                                                     [else "name"])
                                               (if sort-reverse? " desc] " "] ")))]
-               [status-title (fe-fit-text (string-append queue-title filter-title sort-title)
+               [status-title (fm-fit-text (string-append queue-title filter-title sort-title)
                                           (max 0 (- box-w 5)))]
-               [path-title (fe-fit-text (fe-path-label (state-ref 'path)) (max 0 (- box-w 5 (fe-display-width status-title))))]
+               [path-title (fm-fit-text (fm-path-label (state-ref 'path)) (max 0 (- box-w 5 (fm-display-width status-title))))]
                [title-prefix (string-append BORDER-TL BORDER-H " " path-title " ")]
                [title (string-append title-prefix status-title)]
-               [title-len (fe-display-width title)]
+               [title-len (fm-display-width title)]
                [fill-len (- box-w title-len 1)])
           (frame-set-string! frame box-x box-y title-prefix border-style)
           (when (not (string=? status-title ""))
-            (frame-set-string! frame (+ box-x (fe-display-width title-prefix)) box-y status-title staged-style))
+            (frame-set-string! frame (+ box-x (fm-display-width title-prefix)) box-y status-title staged-style))
           (frame-set-string! frame (+ box-x title-len) box-y (border-h fill-len) border-style)
           (frame-set-string! frame (- (+ box-x box-w) 1) box-y BORDER-TR border-style))
         (frame-set-string! frame box-x bottom-y BORDER-BL border-style)
@@ -107,22 +108,22 @@
                               [entry (if (< file-idx (length entries)) (list-ref entries file-idx) #f)])
                          (cond
                            [(and entry (is-dir? entry))
-                            (let* ([name (fe-entry-label entry)]
+                            (let* ([name (fm-entry-label entry)]
                                    [staged? (and markable? (and clipboard-mode (fe-member? entry clipboard)))]
                                    [bookmark-key (fe-bookmark-key-for-path bookmarks entry)]
                                    [mark (cond [(and markable? (fe-member? entry marked)) "* "]
                                                [bookmark-key (string-append (string bookmark-key) " ")]
                                                [else "  "])]
                                    [icon-str (string-append (glyph-dir-closed) " ")]
-                                   [display (fe-fit-text name (- col-w (fe-display-width mark) (fe-display-width icon-str)))]
+                                   [display (fm-fit-text name (- col-w (fm-display-width mark) (fm-display-width icon-str)))]
                                    [row-style (if selected? active-style (if staged? staged-style dir-style))])
                               (when selected?
                                 (frame-set-string! frame col-x row-y (make-string col-w #\space) active-style))
                               (frame-set-string! frame col-x row-y mark (if selected? active-style (if staged? staged-style text-style)))
-                              (frame-set-string! frame (+ col-x (fe-display-width mark)) row-y icon-str row-style)
-                              (frame-set-string! frame (+ col-x (fe-display-width mark) (fe-display-width icon-str)) row-y display row-style))]
+                              (frame-set-string! frame (+ col-x (fm-display-width mark)) row-y icon-str row-style)
+                              (frame-set-string! frame (+ col-x (fm-display-width mark) (fm-display-width icon-str)) row-y display row-style))]
                            [entry
-                            (let* ([name (fe-entry-label entry)]
+                            (let* ([name (fm-entry-label entry)]
                                    [staged? (and markable? (and clipboard-mode (fe-member? entry clipboard)))]
                                    [bookmark-key (fe-bookmark-key-for-path bookmarks entry)]
                                    [mark (cond [(and markable? (fe-member? entry marked)) "* "]
@@ -133,43 +134,45 @@
                                    [icon-color (style-fg (style) (glyph-hex->color (file-color name)))]
                                    [row-style (if selected? active-style (if staged? staged-style text-style))]
                                    [icon-style (if selected? active-style (if staged? staged-style icon-color))]
-                                   [display (fe-fit-text name (- col-w (fe-display-width mark) (fe-display-width icon-str)))])
+                                   [display (fm-fit-text name (- col-w (fm-display-width mark) (fm-display-width icon-str)))])
                               (when selected?
                                 (frame-set-string! frame col-x row-y (make-string col-w #\space) active-style))
                               (frame-set-string! frame col-x row-y mark (if selected? active-style (if staged? staged-style text-style)))
-                              (frame-set-string! frame (+ col-x (fe-display-width mark)) row-y icon-str icon-style)
-                              (frame-set-string! frame (+ col-x (fe-display-width mark) (fe-display-width icon-str)) row-y display row-style))]
+                              (frame-set-string! frame (+ col-x (fm-display-width mark)) row-y icon-str icon-style)
+                              (frame-set-string! frame (+ col-x (fm-display-width mark) (fm-display-width icon-str)) row-y display row-style))]
                            [else (frame-set-string! frame col-x row-y (make-string col-w #\space) bg-style)]))))])
           (render-col (+ box-x 1) lw parent-files parent-cursor (vector-ref scrolls 0) #f #t)
           (render-col (+ sep-x1 1) mw files cursor-row (vector-ref scrolls 1) #t #f))
-        (let ([preview-path (if (< cursor-row (length files)) (list-ref files cursor-row) #f)])
+        (let ([preview-path (fe-preview-path preview)]
+              [preview-lines (fe-preview-lines preview)])
           (if preview-path
               (begin
                 (cond
-                  [(is-dir? preview-path)
-                   (let ([children (fe-read-dir-names preview-path show-hidden?)])
+                  [(fe-preview-directory? preview)
+                   (let ([children preview-lines])
                      (do [(i 0 (+ i 1))] [(>= i content-h)]
                      (let ([row-y (+ content-y i)])
                        (if (< i (length children))
                            (let* ([child (list-ref children i)]
-                                  [name (fe-entry-label child)]
+                                  [name (fm-entry-label child)]
                                   [child-style (if (is-dir? child) dir-style text-style)]
                                   [icon-str (string-append (glyph-icon (if (is-dir? child) "" name)) " ")]
-                                  [display (fe-fit-text name (- rw (fe-display-width icon-str)))])
+                                  [display (fm-fit-text name (- rw (fm-display-width icon-str)))])
                              (frame-set-string! frame (+ sep-x2 1) row-y (string-append icon-str display) child-style))
                            (frame-set-string! frame (+ sep-x2 1) row-y (make-string rw #\space) bg-style)))))]
-                  [(fe-is-text-ext? preview-path)
-                   (let ([lines (fe-read-preview preview-path content-h rw)])
+                  [(not (null? preview-lines))
+                   (let ([lines preview-lines])
                      (do [(i 0 (+ i 1))] [(>= i content-h)]
                      (let ([row-y (+ content-y i)])
                        (if (< i (length lines))
-                           (frame-set-string! frame (+ sep-x2 1) row-y (list-ref lines i) text-style)
+                           (frame-set-string! frame (+ sep-x2 1) row-y
+                                              (fm-fit-text (list-ref lines i) rw) text-style)
                            (frame-set-string! frame (+ sep-x2 1) row-y (make-string rw #\space) bg-style)))))]
                   [else
                    (do [(i 0 (+ i 1))] [(>= i content-h)]
                      (frame-set-string! frame (+ sep-x2 1) (+ content-y i) (make-string rw #\space) bg-style))])
-                (let* ([footer (fe-fit-text (fe-preview-footer preview-path) rw)]
-                       [footer-width (fe-display-width footer)]
+                (let* ([footer (fm-fit-text (fe-preview-footer-text preview) rw)]
+                       [footer-width (fm-display-width footer)]
                        [footer-x (+ sep-x2 1 (- rw footer-width))])
                   (frame-set-string! frame (+ sep-x2 1) bottom-y (border-h (- rw footer-width)) border-style)
                   (frame-set-string! frame footer-x bottom-y footer text-style)))

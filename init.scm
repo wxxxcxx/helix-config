@@ -25,8 +25,8 @@
 (smith-init)
 
 ;; ── Keybindings ─────────────────────────────────────────────────
-(require "cogs/file-explorer.scm")
-(require "cogs/file-tree.scm")
+(require "cogs/file-manager/file-explorer/file-explorer.scm")
+(require "cogs/file-manager/file-tree/file-tree.scm")
 (file-tree-init)
 (helix.keymaps.keymap (global)
   (normal (space (e ":file-explorer-open")

@@ -13,6 +13,7 @@
 
 (define (position-indicator #:fg (fg #f) #:bg (bg #f)
                             #:placeholder (placeholder " --/--░-- 󰄰 ")
+                            #:min-width (min-width #f)
                             #:left-separator? (left-separator? #f) #:left-separator-fg (left-separator-fg #f) #:left-separator-bg (left-separator-bg #f)
                             #:left-separator-char (left-separator-char "")
                             #:right-separator? (right-separator? #f) #:right-separator-fg (right-separator-fg #f) #:right-separator-bg (right-separator-bg #f)
@@ -46,6 +47,6 @@
                                        "," (number->string col)
                                        " " progress " ") s)))
           '()))
-    #:fg fg #:bg bg #:placeholder placeholder
+    #:fg fg #:bg bg #:placeholder placeholder #:min-width min-width
     #:left-separator? left-separator? #:left-separator-fg left-separator-fg #:left-separator-bg left-separator-bg #:left-separator-char left-separator-char
     #:right-separator? right-separator? #:right-separator-fg right-separator-fg #:right-separator-bg right-separator-bg #:right-separator-char right-separator-char))

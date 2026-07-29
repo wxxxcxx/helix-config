@@ -1,7 +1,7 @@
 (require "helix/components.scm")
 (require "helix/misc.scm")
-(require "cogs/file-manager/files.scm")
-(require "cogs/file-manager/bookmarks.scm")
+(require "cogs/file-manager/core/files.scm")
+(require "cogs/file-manager/file-explorer/bookmarks.scm")
 
 (provide fe-bookmarks-view!)
 
@@ -40,11 +40,13 @@
     (max 36
          (apply max 0
                 (map (lambda (entry)
-                       (+ 4 (fe-display-width (list-ref entry 1))))
+                       (+ 4 (fm-display-width (list-ref entry 1))))
                      entries))))
-  (define width (min (- (area-width rect) 4) (min 100 content-w)))
+  (define width (min (max 1 (area-width rect))
+                     (max 3 (min 100 content-w))))
   (define entry-count (length entries))
-  (define height (min (- (area-height rect) 4) (max 3 (+ entry-count 2))))
+  (define height (min (max 1 (area-height rect))
+                      (max 3 (+ entry-count 2))))
   (define visible-count (max 1 (- height 2)))
   (define start (fe-bookmarks-view-start *fe-bookmarks-view-index* entry-count visible-count))
   (define x (quotient (- (area-width rect) width) 2))
@@ -67,7 +69,7 @@
     (if (< entry-index entry-count)
         (let* ([entry (list-ref entries entry-index)]
                [label (string-append " " (string (car entry)) "  " (list-ref entry 1))])
-          (frame-set-string! frame (+ x 1) row-y (fe-fit-text label (- width 2)) row-style))
+          (frame-set-string! frame (+ x 1) row-y (fm-fit-text label (- width 2)) row-style))
         (frame-set-string! frame (+ x 2) row-y "No bookmarks" text-style))))
 
 (define (fe-bookmarks-view-move! delta)

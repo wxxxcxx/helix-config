@@ -1,13 +1,21 @@
 (require "helix/misc.scm")
-(require "cogs/file-manager/files.scm")
+(require "cogs/file-manager/core/files.scm")
 
 (provide fm-run! fm-copy! fm-move! fm-trash! fm-delete! fm-paste! fm-rename! fm-create! fm-valid-name?)
 
 (define (fm-run! program args)
-  (let ([proc (~> (command program args) with-stdout-piped with-stderr-piped spawn-process)])
+  (let ([proc (~> (command program args) with-stderr-piped spawn-process)])
     (if (Ok? proc)
-        (let ([stderr (trim (read-port-to-string (child-stderr (Ok->value proc))))])
-          (when (not (string=? stderr "")) (error stderr)))
+        (let* ([child (Ok->value proc)]
+               [stderr (trim (read-port-to-string (child-stderr child)))]
+               [status (wait child)])
+          (cond [(not (Ok? status))
+                 (error (string-append program ": could not wait for process"))]
+                [(not (= (Ok->value status) 0))
+                 (error (if (string=? stderr "")
+                            (string-append program ": exited with status "
+                                           (int->string (Ok->value status)))
+                            stderr))]))
         (error (string-append program ": could not spawn process")))))
 
 (define (fm-windows-command! script args)
@@ -47,30 +55,65 @@
       (fm-run! "rm" (list "-rf" "--" path))))
 
 (define (fm-target-path destination source)
-  (string-append destination (path-separator) (fe-base-name source)))
+  (string-append destination (path-separator) (fm-base-name source)))
+
+(define (fm-unused-sibling path suffix)
+  (let loop ([index 0])
+    (define candidate
+      (string-append path suffix (if (= index 0) "" (string-append "-" (int->string index)))))
+    (if (path-exists? candidate) (loop (+ index 1)) candidate)))
+
+(define (fm-restore-backup! target backup)
+  (when (path-exists? target) (fm-delete! target))
+  (when (path-exists? backup) (fm-move! backup target)))
+
+(define (fm-replace-target! mode source target)
+  (define backup (fm-unused-sibling target ".helix-fm-backup"))
+  (define staging (and (equal? mode 'copy)
+                       (fm-unused-sibling target ".helix-fm-copy")))
+  ;; Copy first so a failed read never disturbs the existing target.
+  (when staging (fm-copy! source staging))
+  (with-handler
+    (lambda (err)
+      (with-handler (lambda (_) #f) (fm-restore-backup! target backup))
+      (when (and staging (path-exists? staging))
+        (with-handler (lambda (_) #f) (fm-delete! staging)))
+      (error (error-object-message err)))
+    (begin
+      (fm-move! target backup)
+      (if staging
+          (fm-move! staging target)
+          (fm-move! source target))))
+  ;; The replacement is already committed. A cleanup failure must not roll it
+  ;; back, especially for move operations where the source no longer exists.
+  (with-handler
+    (lambda (err)
+      (set-warning! (string-append "file-manager: backup retained at " backup)))
+    (fm-delete! backup)))
 
 (define (fm-paste! mode paths destination force?)
   (for-each
     (lambda (source)
       (define target (fm-target-path destination source))
       (when (and (path-exists? target) (not force?))
-        (error (string-append "destination exists: " (fe-entry-label target))))
+        (error (string-append "destination exists: " (fm-entry-label target))))
       (unless (equal? source target)
-        (when (and force? (path-exists? target)) (fm-delete! target))
-        (if (equal? mode 'copy)
-            (fm-copy! source target)
-            (fm-move! source target))))
+        (if (and force? (path-exists? target))
+            (fm-replace-target! mode source target)
+            (if (equal? mode 'copy)
+                (fm-copy! source target)
+                (fm-move! source target)))))
     paths))
 
 (define (fm-valid-name? name)
   (and (> (string-length name) 0)
-       (equal? name (fe-base-name name))
+       (equal? name (fm-base-name name))
        (not (string=? name "."))
        (not (string=? name ".."))))
 
 (define (fm-rename! path new-name)
   (unless (fm-valid-name? new-name) (error "invalid filename"))
-  (define target (string-append (fe-parent-dir path) (path-separator) new-name))
+  (define target (string-append (fm-parent-dir path) (path-separator) new-name))
   (when (path-exists? target) (error (string-append "already exists: " new-name)))
   (fm-move! path target)
   target)

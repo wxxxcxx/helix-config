@@ -2,9 +2,14 @@
 ;; Reusable style helpers for indicators
 
 (require "helix/components.scm")
+(require (only-in "helix/editor.scm" editor-focused-buffer-area))
 (require "cogs/color.scm")
 
-(provide make-style make-indicator with-separators)
+(provide make-style make-indicator with-separators statusline-width-at-least?)
+
+(define (statusline-width-at-least? min-width)
+  (let ([area (editor-focused-buffer-area)])
+    (or (not area) (>= (area-width area) min-width))))
 
 (define (resolve-color color)
   (and color
@@ -32,6 +37,7 @@
                         #:fg (fg #f)
                         #:bg (bg #f)
                         #:placeholder (placeholder #f)
+                        #:min-width (min-width #f)
                         #:style-transform (style-transform identity-style)
                         #:left-separator? (left? #f)
                         #:left-separator-fg (left-fg #f)
@@ -43,11 +49,13 @@
                         #:right-separator-char (right-char ""))
   (status-element
     (lambda (view-id focused?)
-      (let ([s (style-transform (make-style fg bg focused?))])
-        (with-separators (render view-id focused? s)
-                         #:placeholder placeholder #:placeholder-style s #:focused? focused?
-                         #:left? left? #:left-fg (or left-fg bg) #:left-bg left-bg #:left-char left-char
-                         #:right? right? #:right-fg (or right-fg bg) #:right-bg right-bg #:right-char right-char)))))
+      (if (and min-width (not (statusline-width-at-least? min-width)))
+          '()
+          (let ([s (style-transform (make-style fg bg focused?))])
+            (with-separators (render view-id focused? s)
+                             #:placeholder placeholder #:placeholder-style s #:focused? focused?
+                             #:left? left? #:left-fg (or left-fg bg) #:left-bg left-bg #:left-char left-char
+                             #:right? right? #:right-fg (or right-fg bg) #:right-bg right-bg #:right-char right-char))))))
 
 ;; Empty indicators render their configured placeholder inside the same boundaries.
 (define (with-separators spans

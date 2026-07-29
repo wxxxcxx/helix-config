@@ -1,24 +1,24 @@
 (require "helix/components.scm")
-(require "cogs/file-manager/files.scm")
-(require "cogs/file-manager/keymap.scm")
+(require "cogs/file-manager/core/files.scm")
+(require "cogs/file-manager/core/keymap.scm")
 
 (provide fm-which-key-active? fm-which-key-render!
          fm-which-key-help-render!)
 
-(define (fm-which-key-active? bindings prefix)
+(define (fm-which-key-active? bindings actions prefix)
   (and (not (string=? prefix ""))
-       (not (null? (fm-prefix-menu-entries bindings prefix)))))
+       (not (null? (fm-prefix-menu-entries bindings actions prefix)))))
 
 (define (fm-which-key-max-key-width entries)
   (if (null? entries)
       0
-      (max (fe-display-width (car (car entries)))
+      (max (fm-display-width (car (car entries)))
            (fm-which-key-max-key-width (cdr entries)))))
 
 (define (fm-which-key-max-description-width entries)
   (if (null? entries)
       0
-      (max (fe-display-width (list-ref (car entries) 1))
+      (max (fm-display-width (list-ref (car entries) 1))
            (fm-which-key-max-description-width (cdr entries)))))
 
 (define (fm-which-key-render-entries! title entries rect frame)
@@ -30,7 +30,7 @@
     (define rows (max 1 (quotient (+ (length entries) columns -1) columns)))
     (define column-width (+ key-width description-width 2))
     (define width (max 8 (min (- (area-width rect) 2)
-                              (max (+ (fe-display-width title) 4)
+                              (max (+ (fm-display-width title) 4)
                                    (+ (* columns column-width) 2)))))
     (define height (max 3 (min (- (area-height rect) 2) (+ rows 2))))
     (define x (max 0 (- (area-width rect) width 1)))
@@ -42,7 +42,7 @@
     (buffer/clear-with frame (area x y width height) bg)
     (block/render frame (area x y width height)
                   (make-block bg bg "all" "plain"))
-    (frame-set-string! frame (+ x 1) y (fe-fit-text title (- width 2)) text)
+    (frame-set-string! frame (+ x 1) y (fm-fit-text title (- width 2)) text)
     (do [(index 0 (+ index 1))]
         [(>= index (length entries))]
       (define column (quotient index rows))
@@ -53,16 +53,18 @@
       (define description (list-ref entry 1))
       (frame-set-string! frame column-x (+ y row 1) key key-style)
       (frame-set-string! frame (+ column-x key-width 2) (+ y row 1)
-                         (fe-fit-text description
+                         (fm-fit-text description
                                       (max 0 (- visible-column-width key-width 2)))
                          text))))
 
 ;; Render-only overlay: the owning component continues to receive input.
-(define (fm-which-key-render! bindings prefix rect frame)
-  (define entries (fm-prefix-menu-entries bindings prefix))
+(define (fm-which-key-render! bindings actions prefix rect frame)
+  (define entries (fm-prefix-menu-entries bindings actions prefix))
   (when (not (null? entries))
     (fm-which-key-render-entries! (fm-prefix-description bindings prefix)
                                   entries rect frame)))
 
-(define (fm-which-key-help-render! title bindings rect frame)
-  (fm-which-key-render-entries! title (fm-key-overview-entries bindings) rect frame))
+(define (fm-which-key-help-render! title bindings actions rect frame)
+  (fm-which-key-render-entries! title
+                                (fm-key-overview-entries bindings actions)
+                                rect frame))
