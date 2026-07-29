@@ -666,17 +666,24 @@
      (set! *fe-help-visible?* #f)
      (fe-handle-mapped-key event)]
     [(key-event-escape? event)
-     (if (equal? *fe-pending-action* 'filter)
-         (begin
-           (fe-update-filter! *fe-filter-before-input*)
-           (set! *fe-pending-action* #f))
-         (begin
-           (set! *fe-pending-action* #f)
-           (set! *fe-key-prefix* "")
-           (when (not (null? (fm-session-marked *fe-session*)))
-             (set! *fe-session* (fm-session-clear-marks *fe-session*)))))
-     (set! *fe-session* (fm-session-reset-register *fe-session*))
-     event-result/consume]
+     (cond
+       [(equal? *fe-pending-action* 'filter)
+        (fe-update-filter! *fe-filter-before-input*)
+        (set! *fe-pending-action* #f)
+        (set! *fe-session* (fm-session-reset-register *fe-session*))
+        event-result/consume]
+       [*fe-pending-action*
+        (set! *fe-pending-action* #f)
+        (set! *fe-session* (fm-session-reset-register *fe-session*))
+        event-result/consume]
+       [(not (string=? *fe-key-prefix* ""))
+        (set! *fe-key-prefix* "")
+        event-result/consume]
+       [(not (null? (fm-session-marked *fe-session*)))
+        (set! *fe-session* (fm-session-clear-marks *fe-session*))
+        (set! *fe-session* (fm-session-reset-register *fe-session*))
+        event-result/consume]
+       [else (fe-do-quit)])]
     [(equal? *fe-pending-action* 'filter) (fe-do-filter-key event)]
     [(equal? *fe-pending-action* 'sort) (fe-do-sort-key event)]
     [(equal? *fe-pending-action* 'copy-register) (fe-do-copy-register-key event)]

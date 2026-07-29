@@ -30,6 +30,7 @@
 (define *ft-show-hidden* #f)
 (define *ft-session* (fm-session-empty))
 (define *ft-git-status* (hash))
+(define *ft-git-ignored* (hash))
 (define *ft-key-prefix* "")
 (define *ft-help-visible?* #f)
 (define *ft-pending-action* #f)
@@ -232,7 +233,8 @@
               (lambda (path) (ft-set-root! path))))
 
 (define (ft-refresh-git!)
-  (set! *ft-git-status* (ft-git-read *ft-root*)))
+  (set! *ft-git-status* (ft-git-read *ft-root*))
+  (set! *ft-git-ignored* (ft-git-read-ignored *ft-root*)))
 
 (define (ft-path-git-kinds path)
   (ft-git-path-kinds *ft-git-status* *ft-root* path))
@@ -399,6 +401,7 @@
         [(equal? key 'clipboard) (fm-session-clipboard *ft-session*)]
         [(equal? key 'clipboard-mode) (fm-session-mode *ft-session*)]
         [(equal? key 'git-status) *ft-git-status*]
+        [(equal? key 'git-ignored) *ft-git-ignored*]
         [else #f]))
 
 (define (ft-state-set! key value)

@@ -1,0 +1,19 @@
+
+[package]
+name = "steel-executable"
+authors = [""]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+version = "0.1.0"
+
+[workspace]
+
+
+[dependencies]
+# steel-core = { git = "https://github.com/mattwparas/steel.git", features = ["dylibs", "stacker", "sync"] }
+steel-core = { path = "../crates/steel-core", features = ["dylibs", "stacker", "sync"] }
+
+[profile.release]
+debug = false
+lto = true
+            

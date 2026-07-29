@@ -12,6 +12,12 @@
 (require "default.scm")
 (default-init)
 
+;; LSP status command
+(require "cogs/lsp-status.scm")
+
+;; Scheme color swatches
+(require "cogs/color-swatches/color-swatches.scm")
+
 ;; Rainbow brackets
 (rainbow-brackets #t)
 
@@ -39,3 +45,7 @@
 ;; ── Splash screen (only on blank startup) ───────────────────────
 (require "cogs/splash.scm")
 (splash-smart-show)
+
+;; Apply after all user language configuration so existing LSP definitions and
+;; ordering are preserved; color-swatches is appended as the final server.
+(color-swatches-init)

@@ -1,6 +1,5 @@
 (require "helix/components.scm")
-(require "cogs/glyph/glyph.scm")
-(require "cogs/file-colors.scm")
+(require (only-in "cogs/file-manager/core/file-style.scm" file-icon file-color))
 (require "cogs/file-manager/core/files.scm")
 (require "cogs/file-manager/file-explorer/bookmarks.scm")
 (require "cogs/file-manager/file-explorer/preview.scm")
@@ -13,6 +12,14 @@
 (define (fe-staged-style) (theme-scope-ref "ui.statusline.insert"))
 (define (fe-col-style) (theme-scope-ref "ui.background"))
 (define (fe-border-style) (theme-scope-ref "ui.help"))
+
+(define FE-DIR-ICON "󰉋")
+
+(define (fe-hex-byte hex start)
+  (string->number (substring hex start (+ start 2)) 16))
+
+(define (fe-color hex)
+  (Color/rgb (fe-hex-byte hex 1) (fe-hex-byte hex 3) (fe-hex-byte hex 5)))
 
 (define (fe-member? value values)
   (cond [(null? values) #f]
@@ -114,7 +121,7 @@
                                    [mark (cond [(and markable? (fe-member? entry marked)) "* "]
                                                [bookmark-key (string-append (string bookmark-key) " ")]
                                                [else "  "])]
-                                   [icon-str (string-append (glyph-dir-closed) " ")]
+                                   [icon-str (string-append FE-DIR-ICON " ")]
                                    [display (fm-fit-text name (- col-w (fm-display-width mark) (fm-display-width icon-str)))]
                                    [row-style (if selected? active-style (if staged? staged-style dir-style))])
                               (when selected?
@@ -129,11 +136,14 @@
                                    [mark (cond [(and markable? (fe-member? entry marked)) "* "]
                                                [bookmark-key (string-append (string bookmark-key) " ")]
                                                [else "  "])]
-                                   [icon (glyph-icon name)]
+                                   [icon-style-option (config-ref 'icon-style)]
+                                   [icon (file-icon name #:icon-style icon-style-option)]
                                    [icon-str (string-append icon " ")]
-                                   [icon-color (style-fg (style) (glyph-hex->color (file-color name)))]
                                    [row-style (if selected? active-style (if staged? staged-style text-style))]
-                                   [icon-style (if selected? active-style (if staged? staged-style icon-color))]
+                                   [icon-style
+                                     (if (equal? icon-style-option 'full)
+                                         (style-fg row-style (fe-color (file-color name)))
+                                         row-style)]
                                    [display (fm-fit-text name (- col-w (fm-display-width mark) (fm-display-width icon-str)))])
                               (when selected?
                                 (frame-set-string! frame col-x row-y (make-string col-w #\space) active-style))
@@ -156,9 +166,21 @@
                            (let* ([child (list-ref children i)]
                                   [name (fm-entry-label child)]
                                   [child-style (if (is-dir? child) dir-style text-style)]
-                                  [icon-str (string-append (glyph-icon (if (is-dir? child) "" name)) " ")]
+                                  [icon-style-option (config-ref 'icon-style)]
+                                  [icon (if (is-dir? child)
+                                            FE-DIR-ICON
+                                            (file-icon name #:icon-style icon-style-option))]
+                                  [icon-str (string-append icon " ")]
+                                  [icon-style
+                                    (if (and (not (is-dir? child))
+                                             (equal? icon-style-option 'full))
+                                        (style-fg child-style (fe-color (file-color name)))
+                                        child-style)]
                                   [display (fm-fit-text name (- rw (fm-display-width icon-str)))])
-                             (frame-set-string! frame (+ sep-x2 1) row-y (string-append icon-str display) child-style))
+                             (frame-set-string! frame (+ sep-x2 1) row-y icon-str icon-style)
+                             (frame-set-string! frame
+                                                (+ sep-x2 1 (fm-display-width icon-str))
+                                                row-y display child-style))
                            (frame-set-string! frame (+ sep-x2 1) row-y (make-string rw #\space) bg-style)))))]
                   [(not (null? preview-lines))
                    (let ([lines preview-lines])

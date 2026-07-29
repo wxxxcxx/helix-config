@@ -1,6 +1,7 @@
 (require "cogs/file-manager/core/files.scm")
 
-(provide ft-git-read ft-git-parse-output ft-git-path-kinds)
+(provide ft-git-read ft-git-parse-output ft-git-path-kinds
+         ft-git-read-ignored ft-git-parse-ignored ft-git-ignored?)
 
 (define *ft-git-kind-order* (list 'conflict 'deleted 'renamed 'modified 'added))
 
@@ -86,3 +87,49 @@
 
 (define (ft-git-path-kinds statuses root path)
   (if (string=? path root) '() (or (hash-try-get statuses path) '())))
+
+(define (ft-git-ignored-output root)
+  (with-handler
+    (lambda (_) "")
+    (let ([proc (~> (command "git"
+                             (list "-C" root "ls-files" "--others" "--ignored"
+                                   "--exclude-standard" "--directory" "-z"))
+                    with-stdout-piped
+                    with-stderr-piped
+                    spawn-process)])
+      (if (not (Ok? proc))
+          ""
+          (let* ([child (Ok->value proc)]
+                 [output (read-port-to-string (child-stdout child))]
+                 [_ (read-port-to-string (child-stderr child))]
+                 [status (wait child)])
+            (if (and (Ok? status) (= (Ok->value status) 0)) output ""))))))
+
+(define (ft-git-relative-path path)
+  (define without-trailing-slash
+    (if (ends-with? path "/")
+        (substring path 0 (- (string-length path) 1))
+        path))
+  (string-join (split-many without-trailing-slash "/") (path-separator)))
+
+(define (ft-git-parse-ignored root output)
+  (foldl
+    (lambda (relative-path ignored)
+      (if (string=? relative-path "")
+          ignored
+          (hash-insert
+            ignored
+            (string-append root (path-separator)
+                           (ft-git-relative-path relative-path))
+            #t)))
+    (hash)
+    (split-many output (string (integer->char 0)))))
+
+(define (ft-git-read-ignored root)
+  (ft-git-parse-ignored root (ft-git-ignored-output root)))
+
+(define (ft-git-ignored? ignored path)
+  (let loop ([current path])
+    (cond [(hash-contains? ignored current) #t]
+          [(string=? current (fm-parent-dir current)) #f]
+          [else (loop (fm-parent-dir current))])))
