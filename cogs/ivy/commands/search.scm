@@ -38,6 +38,7 @@
                       ""))
   (ivy-read "Search  " (ivy-search-document-lines)
             #:initial initial
+            #:history 'buffer-search
             #:preview (lambda (candidate) (goto-line (IvyCandidate-value candidate)))
             #:accept (lambda (candidate) (goto-line (IvyCandidate-value candidate)))
             #:cancel (lambda (_) (goto-line origin))))

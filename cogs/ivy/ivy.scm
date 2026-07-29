@@ -25,6 +25,11 @@
 (define *ivy-raw-accept* #f)
 (define *ivy-empty-backspace* #f)
 (define *ivy-tab-accept?* #f)
+(define *ivy-history-key* #f)
+(define *ivy-update-candidates* #f)
+(define *ivy-histories* (hash))
+(define *ivy-history-index* -1)
+(define *ivy-history-draft* "")
 (define *ivy-bounds* #f)
 
 (define (ivy-clamp value low high)
@@ -45,6 +50,9 @@
     (*ivy-preview* candidate)))
 
 (define (ivy-refilter!)
+  (when *ivy-update-candidates*
+    (define updated (*ivy-update-candidates* *ivy-query*))
+    (when (list? updated) (set! *ivy-candidates* updated)))
   (set! *ivy-matches* (ivy-filter *ivy-candidates* *ivy-query*))
   (set! *ivy-selected*
         (if (null? *ivy-matches*)
@@ -54,8 +62,9 @@
 
 (define (ivy-move! amount)
   (unless (null? *ivy-matches*)
+    (define total (length *ivy-matches*))
     (set! *ivy-selected*
-          (ivy-clamp (+ *ivy-selected* amount) 0 (- (length *ivy-matches*) 1)))
+          (modulo (+ *ivy-selected* amount) total))
     (ivy-preview-current!)))
 
 (define (ivy-select! index)
@@ -93,12 +102,52 @@
 (define (ivy-ctrl? event)
   (not (= 0 (bitwise-and (or (key-event-modifier event) 0) key-modifier-ctrl))))
 
+(define (ivy-alt? event)
+  (not (= 0 (bitwise-and (or (key-event-modifier event) 0) key-modifier-alt))))
+
 (define (ivy-ctrl-char? event expected)
   (and (ivy-ctrl? event)
        (let ([ch (key-event-char event)])
          (and (char? ch) (char=? (char-downcase ch) expected)))))
 
+(define (ivy-alt-char? event expected)
+  (and (ivy-alt? event)
+       (let ([ch (key-event-char event)])
+         (and (char? ch) (char=? (char-downcase ch) expected)))))
+
+(define (ivy-history-values)
+  (if (and *ivy-history-key* (hash-contains? *ivy-histories* *ivy-history-key*))
+      (hash-get *ivy-histories* *ivy-history-key*)
+      '()))
+
+(define (ivy-record-history!)
+  (when (and *ivy-history-key* (not (string=? (trim *ivy-query*) "")))
+    (define values (ivy-history-values))
+    (set! *ivy-histories*
+          (hash-insert *ivy-histories* *ivy-history-key*
+                       (ivy-take
+                         (cons *ivy-query*
+                               (filter (lambda (value) (not (string=? value *ivy-query*)))
+                                       values))
+                         50)))))
+
+(define (ivy-use-history! direction)
+  (define values (ivy-history-values))
+  (unless (null? values)
+    (when (= *ivy-history-index* -1)
+      (set! *ivy-history-draft* *ivy-query*))
+    (set! *ivy-history-index*
+          (ivy-clamp (+ *ivy-history-index* direction) -1 (- (length values) 1)))
+    (set! *ivy-query*
+          (if (= *ivy-history-index* -1)
+              *ivy-history-draft*
+              (list-ref values *ivy-history-index*)))
+    (set! *ivy-input-cursor* (string-length *ivy-query*))
+    (set! *ivy-selected* 0)
+    (ivy-refilter!)))
+
 (define (ivy-finish! callback value)
+  (ivy-record-history!)
   (when callback
     (enqueue-thread-local-callback (lambda () (callback value))))
   event-result/close)
@@ -206,6 +255,12 @@
      (when value (ivy-insert! value))
      event-result/consume]
     [(key-event-escape? event) (ivy-finish! *ivy-cancel* #f)]
+    [(ivy-alt-char? event #\p)
+     (ivy-use-history! 1)
+     event-result/consume]
+    [(ivy-alt-char? event #\n)
+     (ivy-use-history! -1)
+     event-result/consume]
     [(and (key-event-enter? event) (ivy-ctrl? event) *ivy-raw-accept*)
      (ivy-finish! *ivy-raw-accept* *ivy-query*)]
     [(or (key-event-enter? event)
@@ -368,7 +423,9 @@
                   #:cancel [cancel #f]
                   #:raw-accept [raw-accept #f]
                   #:empty-backspace [empty-backspace #f]
-                  #:tab-accept [tab-accept? #f])
+                  #:tab-accept [tab-accept? #f]
+                  #:history [history-key #f]
+                  #:update [update-candidates #f])
   (set! *ivy-accept* accept)
   (set! *ivy-confirm* confirm)
   (set! *ivy-preview* preview)
@@ -376,6 +433,10 @@
   (set! *ivy-raw-accept* raw-accept)
   (set! *ivy-empty-backspace* empty-backspace)
   (set! *ivy-tab-accept?* tab-accept?)
+  (set! *ivy-history-key* history-key)
+  (set! *ivy-update-candidates* update-candidates)
+  (set! *ivy-history-index* -1)
+  (set! *ivy-history-draft* initial)
   (set! *ivy-bounds* #f)
   (ivy-update! prompt candidates initial)
   (push-component!

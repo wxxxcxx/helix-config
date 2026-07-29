@@ -72,4 +72,5 @@
             #:accept (lambda (candidate) (open-path (IvyCandidate-value candidate)))
             #:raw-accept open-input
             #:empty-backspace up-directory
+            #:history 'find-file
             #:tab-accept #t))

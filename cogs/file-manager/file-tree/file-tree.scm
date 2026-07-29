@@ -14,7 +14,8 @@
 (require "cogs/file-manager/file-tree/config.scm")
 (require "cogs/file-manager/file-tree/render.scm")
 
-(provide file-tree-init file-tree-open file-tree-close file-tree-configure!)
+(provide file-tree-init file-tree-open file-tree-close file-tree-configure!
+         file-tree-set-layout-hooks!)
 
 (struct FileTreeState ())
 
@@ -38,6 +39,12 @@
 (define *ft-root-back* '())
 (define *ft-root-forward* '())
 (define *ft-root-views* (hash))
+(define *ft-layout-open-hook* (lambda (_side _width) void))
+(define *ft-layout-close-hook* (lambda () void))
+
+(define (file-tree-set-layout-hooks! on-open on-close)
+  (set! *ft-layout-open-hook* on-open)
+  (set! *ft-layout-close-hook* on-close))
 
 (define (ft-apply-editor-clipping! width)
   (if (equal? (ft-config-ref 'side) 'right)
@@ -578,7 +585,21 @@
 (define (ft-run-action action)
   (fm-action-run *ft-actions* action event-result/consume))
 
+(define *ft-global-passthrough-keys*
+  (list (string->key-event "C-`")
+        (string->key-event "C-S-`")
+        (string->key-event "C-ret")
+        (string->key-event "C-pageup")
+        (string->key-event "C-pagedown")))
+
+(define (ft-global-passthrough? event)
+  (and (string=? *ft-key-prefix* "")
+       (not *ft-help-visible?*)
+       (not *ft-pending-action*)
+       (ft-member? (event->key-event event) *ft-global-passthrough-keys*)))
+
 (define (ft-handle-mapped-key event)
+  (define had-prefix? (not (string=? *ft-key-prefix* "")))
   (define result (fm-key-step (ft-config-ref 'keybindings) *ft-key-prefix* event))
   (define kind (fm-key-result-kind result))
   (define value (fm-key-result-value result))
@@ -592,7 +613,7 @@
          (set! *ft-key-prefix* "")
          event-result/consume]
         [else
-         (when (and (not (string=? *ft-key-prefix* ""))
+         (when (and had-prefix?
                     (not (fm-which-key-active? (ft-config-ref 'keybindings) *ft-actions*
                                                *ft-key-prefix*)))
            (set-warning! (string-append "unknown key sequence: " value)))
@@ -673,6 +694,7 @@
   (cond
     [(mouse-event? event) (ft-handle-mouse event)]
     [(not *ft-focused?*) event-result/ignore]
+    [(ft-global-passthrough? event) event-result/ignore]
     [(and *ft-help-visible?* (key-event-escape? event))
      (set! *ft-help-visible?* #f)
      event-result/consume]
@@ -718,7 +740,8 @@
           (lambda ()
             (push-component!
               (new-component! "file-tree" (FileTreeState) ft-render
-                              (hash "handle_event" ft-handle-event))))))))
+                              (hash "handle_event" ft-handle-event)))))
+        (*ft-layout-open-hook* (ft-config-ref 'side) (ft-config-ref 'width)))))
 
 (define (file-tree-close)
   (set! *ft-active* #f)
@@ -728,6 +751,7 @@
   (set! *ft-help-visible?* #f)
   (set! *ft-pending-action* #f)
   (ft-clear-editor-clipping!)
+  (*ft-layout-close-hook*)
   (pop-last-component-by-name! "file-tree"))
 
 (define (file-tree-init)
