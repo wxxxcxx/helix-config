@@ -27,6 +27,7 @@
 (define *ft-selected* 0)
 (define *ft-scroll* 0)
 (define *ft-content-height* 1)
+(define *ft-bounds* #f)
 (define *ft-show-hidden* #f)
 (define *ft-session* (fm-session-empty))
 (define *ft-git-status* (hash))
@@ -405,10 +406,11 @@
         [else #f]))
 
 (define (ft-state-set! key value)
-  (when (equal? key 'layout)
-    (ft-apply-editor-clipping! (car value))
-    (set! *ft-content-height* (list-ref value 1))
-    (ft-scroll-to-visible!)))
+  (cond [(equal? key 'layout)
+         (ft-apply-editor-clipping! (car value))
+         (set! *ft-content-height* (list-ref value 1))
+         (ft-scroll-to-visible!)]
+        [(equal? key 'bounds) (set! *ft-bounds* value)]))
 
 (define ft-render-base
   (make-file-tree-render ft-state-ref ft-state-set! ft-config-ref))
@@ -597,8 +599,79 @@
          (set! *ft-key-prefix* "")
          event-result/consume]))
 
+(define (ft-mouse-inside-tree? event)
+  (and *ft-bounds*
+       (let ([col (event-mouse-col event)]
+             [row (event-mouse-row event)]
+             [x (list-ref *ft-bounds* 0)]
+             [y (list-ref *ft-bounds* 1)]
+             [width (list-ref *ft-bounds* 2)]
+             [height (list-ref *ft-bounds* 3)])
+         (and col row
+              (>= col x) (< col (+ x width))
+              (>= row y) (< row (+ y height))))))
+
+(define (ft-mouse-row-index event)
+  (and *ft-bounds*
+       (let* ([col (event-mouse-col event)]
+              [row (event-mouse-row event)]
+              [content-x (list-ref *ft-bounds* 4)]
+              [content-y (list-ref *ft-bounds* 5)]
+              [content-width (list-ref *ft-bounds* 6)]
+              [content-height (list-ref *ft-bounds* 7)]
+              [row-offset (- row content-y)]
+              [index (+ *ft-scroll* row-offset)])
+         (and (>= col content-x) (< col (+ content-x content-width))
+              (>= row-offset 0) (< row-offset content-height)
+              (< index (length *ft-rows*))
+              index))))
+
+(define (ft-focus-mouse-row! event)
+  (define index (ft-mouse-row-index event))
+  (set! *ft-focused?* #t)
+  (set! *ft-help-visible?* #f)
+  (set! *ft-key-prefix* "")
+  (set! *ft-pending-action* #f)
+  (when index (set! *ft-selected* index))
+  index)
+
+(define (ft-open-selected-from-mouse!)
+  (define path (ft-selected-path))
+  (cond [(not path) event-result/consume]
+        [(is-dir? path)
+         (ft-toggle-selected!)
+         event-result/consume]
+        [else
+         (enqueue-thread-local-callback (lambda () (helix.open path)))
+         (set! *ft-focused?* #f)
+         event-result/consume]))
+
+(define (ft-handle-mouse event)
+  (define kind (event-mouse-kind event))
+  (if (not (ft-mouse-inside-tree? event))
+      (begin
+        (when (= kind 0) (set! *ft-focused?* #f))
+        event-result/ignore)
+      (cond [(= kind 0)
+             (if (ft-focus-mouse-row! event)
+                 (ft-open-selected-from-mouse!)
+                 event-result/consume)]
+            [(= kind 1)
+             (ft-focus-mouse-row! event)
+             event-result/consume]
+            [(= kind 10)
+             (set! *ft-focused?* #t)
+             (ft-move! 1)
+             event-result/consume]
+            [(= kind 11)
+             (set! *ft-focused?* #t)
+             (ft-move! -1)
+             event-result/consume]
+            [else event-result/consume])))
+
 (define (ft-handle-event state event)
   (cond
+    [(mouse-event? event) (ft-handle-mouse event)]
     [(not *ft-focused?*) event-result/ignore]
     [(and *ft-help-visible?* (key-event-escape? event))
      (set! *ft-help-visible?* #f)
@@ -623,6 +696,7 @@
       (begin
         (set! *ft-active* #t)
         (set! *ft-focused?* #t)
+        (set! *ft-bounds* #f)
         (set! *ft-root* "")
         (set! *ft-workspace-root* (helix-find-workspace))
         (set! *ft-key-prefix* "")
@@ -649,6 +723,7 @@
 (define (file-tree-close)
   (set! *ft-active* #f)
   (set! *ft-focused?* #f)
+  (set! *ft-bounds* #f)
   (set! *ft-key-prefix* "")
   (set! *ft-help-visible?* #f)
   (set! *ft-pending-action* #f)

@@ -24,14 +24,23 @@
   (string-append "Open  " directory (path-separator)))
 
 (define (find-file-candidates directory)
-  (map (lambda (path)
-         (define directory? (is-dir? path))
-         (define name (fm-entry-label path))
-         (IvyCandidate (if directory? (string-append name (path-separator)) name)
-                       (if directory? "dir" "file")
-                       path
-                       name))
-       (fm-read-dir-names directory #t)))
+  (define parent (fm-parent-dir directory))
+  (define entries
+    (map (lambda (path)
+           (define directory? (is-dir? path))
+           (define name (fm-entry-label path))
+           (IvyCandidate (if directory? (string-append name (path-separator)) name)
+                         (if directory? "dir" "file")
+                         path
+                         name))
+         (fm-read-dir-names directory #t)))
+  (if (string=? parent directory)
+      entries
+      (cons (IvyCandidate (string-append ".." (path-separator))
+                          "dir"
+                          parent
+                          "..")
+            entries)))
 
 (define (find-file-enter-directory! directory)
   (set! *ivy-find-file-directory* directory)

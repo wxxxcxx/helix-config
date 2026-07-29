@@ -89,6 +89,8 @@
     (define content-h (max 1 (- height 2)))
     (define status-y (max y (- (+ y height) 2)))
     (state-set! 'layout (list width content-h))
+    (state-set! 'bounds
+                (list x y width height content-x y content-w content-h))
     (define root (state-ref 'root))
     (define focused? (state-ref 'focused?))
     (define expanded (state-ref 'expanded))

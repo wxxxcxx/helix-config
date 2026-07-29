@@ -5,8 +5,9 @@ It provides one bottom panel and three commands:
 
 - `ivy-search`: fuzzy line search with live navigation and cancel restoration.
 - `ivy-find-file`: filters the current directory, keeps the picker open when
-  entering a directory, and only exits after opening a file. `Ctrl-Enter` opens
-  the input literally so a new path can be created.
+  entering a directory, renders `../` first for its parent, and only exits after
+  opening a file. `Ctrl-Enter` opens the input literally so a new path can be
+  created.
 - `ivy-commands`: searches 414 native static and typable commands by name and
   documentation.
 
@@ -31,6 +32,11 @@ It provides one bottom panel and three commands:
 | `Enter` | Accept the selected candidate |
 | `Tab` in `ivy-find-file` | Confirm the selected directory or file |
 | `Escape` | Cancel |
+| Left click a candidate | Select and accept the candidate |
+| Right click a candidate | Select without accepting |
+| Left click the prompt | Reposition the query cursor |
+| Mouse wheel | Move one candidate |
+| Left click outside the panel | Cancel |
 
 `command-catalog.scm` is generated from the wrappers shipped with the active
 Helix fork. Regenerate it when upgrading to a version whose native command set

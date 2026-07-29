@@ -25,6 +25,7 @@
 (define *ivy-raw-accept* #f)
 (define *ivy-empty-backspace* #f)
 (define *ivy-tab-accept?* #f)
+(define *ivy-bounds* #f)
 
 (define (ivy-clamp value low high)
   (max low (min high value)))
@@ -55,6 +56,11 @@
   (unless (null? *ivy-matches*)
     (set! *ivy-selected*
           (ivy-clamp (+ *ivy-selected* amount) 0 (- (length *ivy-matches*) 1)))
+    (ivy-preview-current!)))
+
+(define (ivy-select! index)
+  (when (and (>= index 0) (< index (length *ivy-matches*)))
+    (set! *ivy-selected* index)
     (ivy-preview-current!)))
 
 (define (ivy-insert! value)
@@ -113,6 +119,77 @@
       (ivy-backspace!))
   event-result/consume)
 
+(define (ivy-mouse-inside? event)
+  (and *ivy-bounds*
+       (let ([col (event-mouse-col event)]
+             [row (event-mouse-row event)]
+             [x (list-ref *ivy-bounds* 0)]
+             [y (list-ref *ivy-bounds* 1)]
+             [width (list-ref *ivy-bounds* 2)]
+             [height (list-ref *ivy-bounds* 3)])
+         (and col row
+              (>= col x) (< col (+ x width))
+              (>= row y) (< row (+ y height))))))
+
+(define (ivy-mouse-candidate-index event)
+  (and *ivy-bounds*
+       (let* ([row (event-mouse-row event)]
+              [candidates-y (list-ref *ivy-bounds* 5)]
+              [visible-rows (list-ref *ivy-bounds* 6)]
+              [start (list-ref *ivy-bounds* 7)]
+              [row-offset (- row candidates-y)]
+              [index (+ start row-offset)])
+         (and (>= row-offset 0) (< row-offset visible-rows)
+              (< index (length *ivy-matches*))
+              index))))
+
+(define (ivy-query-index-at-width target-width)
+  (let loop ([index 0] [width 0])
+    (if (>= index (string-length *ivy-query*))
+        index
+        (let ([next-width
+                (+ width
+                   (fm-display-width
+                     (substring *ivy-query* index (+ index 1))))])
+          (if (> next-width target-width)
+              index
+              (loop (+ index 1) next-width))))))
+
+(define (ivy-position-input-cursor! event)
+  (define prompt-y (list-ref *ivy-bounds* 4))
+  (when (= (event-mouse-row event) prompt-y)
+    (define query-x (+ (list-ref *ivy-bounds* 0) 2
+                       (fm-display-width *ivy-prompt*)))
+    (set! *ivy-input-cursor*
+          (ivy-query-index-at-width
+            (max 0 (- (event-mouse-col event) query-x))))))
+
+(define (ivy-handle-mouse event)
+  (define kind (event-mouse-kind event))
+  (if (not (ivy-mouse-inside? event))
+      (if (= kind 0)
+          (ivy-finish! *ivy-cancel* #f)
+          event-result/ignore)
+      (let ([index (ivy-mouse-candidate-index event)])
+        (cond [(= kind 0)
+               (if index
+                   (begin
+                     (ivy-select! index)
+                     (ivy-accept-current!))
+                   (begin
+                     (ivy-position-input-cursor! event)
+                     event-result/consume))]
+              [(= kind 1)
+               (when index (ivy-select! index))
+               event-result/consume]
+              [(= kind 10)
+               (ivy-move! 1)
+               event-result/consume]
+              [(= kind 11)
+               (ivy-move! -1)
+               event-result/consume]
+              [else event-result/consume]))))
+
 (define (ivy-update! prompt candidates [initial ""])
   (set! *ivy-prompt* prompt)
   (set! *ivy-query* initial)
@@ -123,6 +200,7 @@
 
 (define (ivy-handle-event state event)
   (cond
+    [(mouse-event? event) (ivy-handle-mouse event)]
     [(paste-event? event)
      (define value (paste-event-string event))
      (when value (ivy-insert! value))
@@ -240,6 +318,8 @@
         0
         (max 0 (min (- total list-rows)
                     (- *ivy-selected* (quotient list-rows 2))))))
+  (set! *ivy-bounds*
+        (list x y width height prompt-y candidates-y list-rows start))
   (define visible (ivy-take (ivy-drop *ivy-matches* start) list-rows))
   (let loop ([matches visible] [row 0])
     (unless (or (null? matches) (>= row list-rows))
@@ -296,6 +376,7 @@
   (set! *ivy-raw-accept* raw-accept)
   (set! *ivy-empty-backspace* empty-backspace)
   (set! *ivy-tab-accept?* tab-accept?)
+  (set! *ivy-bounds* #f)
   (ivy-update! prompt candidates initial)
   (push-component!
     (new-component! "ivy" (IvyComponentState) ivy-render
