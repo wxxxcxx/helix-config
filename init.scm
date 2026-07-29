@@ -31,11 +31,18 @@
 (smith-init)
 
 ;; ── Keybindings ─────────────────────────────────────────────────
+(require (only-in "cogs/ivy/search.scm" ivy-search))
+(require (only-in "cogs/ivy/find-file.scm" ivy-find-file))
+(require (only-in "cogs/ivy/commands.scm" ivy-commands))
+
 (require "cogs/file-manager/file-explorer/file-explorer.scm")
 (require "cogs/file-manager/file-tree/file-tree.scm")
 (file-tree-init)
 (helix.keymaps.keymap (global)
-  (normal (space (e ":file-explorer-open")
+  (normal ("/" ivy-search)
+          (space (f ivy-find-file)
+                 ("?" ivy-commands)
+                 (e ":file-explorer-open")
                  (t ":file-tree-open"))))
 
 ;; ── Input source switching ──────────────────────────────────────

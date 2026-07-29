@@ -40,7 +40,7 @@
   (when (color-terminal?) (true-color #t))
   (default-enable-steel-lsp!)
   (line-number 'relative)
-  (indent-guides (ig-render #t))
+  (indent-guides (ig-render #t) (ig-character #\┊))
   (bufferline "always")
   (soft-wrap (sw-enable #t))
   (lsp (hash 'display-color-swatches (color-terminal?)))
