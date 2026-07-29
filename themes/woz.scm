@@ -4,6 +4,8 @@
 (require "helix/components.scm")
 (require (prefix-in theme. "helix/themes.scm"))
 
+(provide register-woz-theme)
+
 ;; ── Palette ───────────────────────────────────────────────
 (define bg          "#2E3440")
 (define bg-alt      "#464f62")
@@ -265,4 +267,5 @@
     (theme.markup.link.url        (fg+italic accent))
     (theme.markup.raw.inline      (fg+italic green)))
 
-(theme.register-theme woz-theme)
+(define (register-woz-theme)
+  (theme.register-theme woz-theme))

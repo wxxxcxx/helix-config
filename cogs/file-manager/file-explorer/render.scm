@@ -1,4 +1,5 @@
 (require "helix/components.scm")
+(require (only-in "cogs/color.scm" terminal-color))
 (require (only-in "cogs/file-manager/core/file-style.scm" file-icon file-color))
 (require "cogs/file-manager/core/files.scm")
 (require "cogs/file-manager/file-explorer/bookmarks.scm")
@@ -14,12 +15,6 @@
 (define (fe-border-style) (theme-scope-ref "ui.help"))
 
 (define FE-DIR-ICON "󰉋")
-
-(define (fe-hex-byte hex start)
-  (string->number (substring hex start (+ start 2)) 16))
-
-(define (fe-color hex)
-  (Color/rgb (fe-hex-byte hex 1) (fe-hex-byte hex 3) (fe-hex-byte hex 5)))
 
 (define (fe-member? value values)
   (cond [(null? values) #f]
@@ -142,7 +137,7 @@
                                    [row-style (if selected? active-style (if staged? staged-style text-style))]
                                    [icon-style
                                      (if (equal? icon-style-option 'full)
-                                         (style-fg row-style (fe-color (file-color name)))
+                                         (style-fg row-style (terminal-color (file-color name)))
                                          row-style)]
                                    [display (fm-fit-text name (- col-w (fm-display-width mark) (fm-display-width icon-str)))])
                               (when selected?
@@ -174,7 +169,7 @@
                                   [icon-style
                                     (if (and (not (is-dir? child))
                                              (equal? icon-style-option 'full))
-                                        (style-fg child-style (fe-color (file-color name)))
+                                        (style-fg child-style (terminal-color (file-color name)))
                                         child-style)]
                                   [display (fm-fit-text name (- rw (fm-display-width icon-str)))])
                              (frame-set-string! frame (+ sep-x2 1) row-y icon-str icon-style)

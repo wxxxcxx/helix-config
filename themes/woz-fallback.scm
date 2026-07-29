@@ -1,24 +1,26 @@
-;; Woz-safe — 16-color / 256-color safe variant of woz theme
-;;
+;; Shared indexed/ANSI fallback theme builder.
 
 (require (prefix-in theme. "helix/themes.scm"))
 
-;; ── Palette (ANSI named colors) ────────────────────────────
-(define bg          "black")
-(define bg-alt      "gray")
-(define bg-hl       "silver")
-(define fg          "white")
-(define fg-dim      "darkgray")
-(define fg-bright   "white")
-(define accent      "cyan")
-(define accent-alt  "lightsteelblue")
-(define accent-dim  "steelblue")
-(define teal        "mediumaquamarine")
-(define green       "darkseagreen")
-(define orange      "lightsalmon")
-(define red         "indianred")
-(define purple      "orchid")
-(define yellow      "khaki")
+(provide make-woz-fallback-theme)
+
+(define (make-woz-fallback-theme name palette)
+  (define ansi?      (hash-get palette 'ansi?))
+  (define bg         (hash-get palette 'bg))
+  (define bg-alt     (hash-get palette 'bg-alt))
+  (define bg-hl      (hash-get palette 'bg-hl))
+  (define fg         (hash-get palette 'fg))
+  (define fg-dim     (hash-get palette 'fg-dim))
+  (define fg-bright  (hash-get palette 'fg-bright))
+  (define accent     (hash-get palette 'accent))
+  (define accent-alt (hash-get palette 'accent-alt))
+  (define accent-dim (hash-get palette 'accent-dim))
+  (define teal       (hash-get palette 'teal))
+  (define green      (hash-get palette 'green))
+  (define orange     (hash-get palette 'orange))
+  (define red        (hash-get palette 'red))
+  (define purple     (hash-get palette 'purple))
+  (define yellow     (hash-get palette 'yellow))
 
 ;; ── Syntax hash ───────────────────────────────────────────
 (define nord-syntax-hash
@@ -165,37 +167,63 @@
    "ui.background" (hash 'fg fg)
 
    "ui.text"  (hash 'fg fg)
-   "ui.text.focus"     (hash 'fg fg 'bg bg-hl)
+   "ui.text.focus"     (if ansi?
+                            (hash 'fg fg 'modifiers '("reversed"))
+                            (hash 'fg fg 'bg bg-hl))
    "ui.text.info"      (hash 'fg accent)
    "ui.text.inactive"  (hash 'fg fg-dim)
    "ui.text.directory" (hash 'fg accent-alt)
 
    ;; ── Mode: Normal (accent tones) ──
-    "ui.cursor.normal"          (hash 'fg fg       'bg accent-dim)
-    "ui.cursor.primary.normal"  (hash 'fg fg-bright 'bg accent)
+    "ui.cursor.normal"          (if ansi?
+                                    (hash 'fg accent-dim 'modifiers '("reversed"))
+                                    (hash 'fg fg 'bg accent-dim))
+    "ui.cursor.primary.normal"  (if ansi?
+                                    (hash 'fg accent 'modifiers '("reversed" "bold"))
+                                    (hash 'fg fg-bright 'bg accent))
     "ui.statusline.normal"      (hash 'fg accent)
     "ui.mode.normal"            (hash 'fg accent)
 
    ;; ── Mode: Insert (purple tones) ──
-    "ui.cursor.insert"          (hash 'fg fg       'bg purple)
-    "ui.cursor.primary.insert"  (hash 'fg fg-bright 'bg purple)
+    "ui.cursor.insert"          (if ansi?
+                                    (hash 'fg purple 'modifiers '("reversed"))
+                                    (hash 'fg fg 'bg purple))
+    "ui.cursor.primary.insert"  (if ansi?
+                                    (hash 'fg purple 'modifiers '("reversed" "bold"))
+                                    (hash 'fg fg-bright 'bg purple))
     "ui.statusline.insert"      (hash 'fg purple)
 
    ;; ── Mode: Select (green tones) ──
-    "ui.cursor.select"          (hash 'fg fg       'bg green)
-    "ui.cursor.primary.select"  (hash 'fg fg-bright 'bg accent)
+    "ui.cursor.select"          (if ansi?
+                                    (hash 'fg green 'modifiers '("reversed"))
+                                    (hash 'fg fg 'bg green))
+    "ui.cursor.primary.select"  (if ansi?
+                                    (hash 'fg green 'modifiers '("reversed" "bold"))
+                                    (hash 'fg fg-bright 'bg accent))
     "ui.statusline.select"      (hash 'fg green)
 
    ;; Cursor — fallback / generic
-   "ui.cursor"              (hash 'fg fg       'bg accent-dim)
-   "ui.cursor.primary"      (hash 'fg fg-bright 'bg accent)
-   "ui.cursor.match"        (hash 'fg accent   'bg bg-hl)
-   "ui.cursorline"          (hash 'bg bg-alt)
-   "ui.cursorline.primary"  (hash 'bg bg-hl)
+   "ui.cursor"              (if ansi?
+                                (hash 'fg accent-dim 'modifiers '("reversed"))
+                                (hash 'fg fg 'bg accent-dim))
+   "ui.cursor.primary"      (if ansi?
+                                (hash 'fg accent 'modifiers '("reversed" "bold"))
+                                (hash 'fg fg-bright 'bg accent))
+   "ui.cursor.match"        (if ansi?
+                                (hash 'fg accent 'modifiers '("underlined" "bold"))
+                                (hash 'fg accent 'bg bg-hl))
+   "ui.cursorline"          (if ansi? (hash) (hash 'bg bg-alt))
+   "ui.cursorline.primary"  (if ansi?
+                                (hash 'modifiers '("underlined"))
+                                (hash 'bg bg-hl))
 
    ;; Selection — dim green, matching select cursor hue
-    "ui.selection"         (hash 'bg bg-alt)
-    "ui.selection.primary" (hash 'bg bg-hl)
+    "ui.selection"         (if ansi?
+                                (hash 'modifiers '("reversed"))
+                                (hash 'bg bg-alt))
+    "ui.selection.primary" (if ansi?
+                                (hash 'modifiers '("reversed" "bold"))
+                                (hash 'bg bg-hl))
 
    ;; Line numbers — transparent bg
     "ui.linenr"          (hash 'fg fg-dim)
@@ -218,11 +246,11 @@
    "ui.window"      (hash 'fg fg-dim)
    "ui.popup"       (hash 'fg fg)
    "ui.menu"          (hash 'fg fg 'bg bg-alt)
-   "ui.menu.selected" (hash 'fg accent 'bg bg-hl)
+   "ui.menu.selected" (if ansi?
+                           (hash 'fg accent 'modifiers '("reversed" "bold"))
+                           (hash 'fg accent 'bg bg-hl))
    "ui.menu.scroll"   (hash 'fg fg-dim)))
 
 ;; ── Assemble theme ────────────────────────────────────────
 (define woz-hash (hash-union nord-syntax-hash woz-ui-hash))
-(define woz-theme (theme.hashmap->theme "woz-safe" woz-hash))
-
-(theme.register-theme woz-theme)
+(theme.hashmap->theme name woz-hash))

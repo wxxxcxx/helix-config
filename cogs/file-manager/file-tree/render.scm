@@ -1,4 +1,5 @@
 (require "helix/components.scm")
+(require (only-in "cogs/color.scm" terminal-color))
 (require (only-in "cogs/file-manager/core/file-style.scm" file-icon file-color))
 (require (only-in "cogs/indicators/style.scm" make-style))
 (require (only-in "cogs/statusline-palette.scm" major-bg))
@@ -14,14 +15,6 @@
 
 (define (ft-render-row-path row) (list-ref row 1))
 (define (ft-render-row-depth row) (car row))
-
-(define (ft-render-hex-byte hex start)
-  (string->number (substring hex start (+ start 2)) 16))
-
-(define (ft-render-color hex)
-  (Color/rgb (ft-render-hex-byte hex 1)
-             (ft-render-hex-byte hex 3)
-             (ft-render-hex-byte hex 5)))
 
 (define (ft-render-git-icon kind)
   (cond [(equal? kind 'added) ""]
@@ -153,7 +146,7 @@
                   [(is-dir? path) dir-style]
                   [(equal? icon-style-option 'full)
                    (style-fg text
-                             (ft-render-color
+                             (terminal-color
                                (file-color (fm-entry-label path))))]
                   [else text])
             style))

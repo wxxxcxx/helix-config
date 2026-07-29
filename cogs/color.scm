@@ -5,12 +5,15 @@
 (require (only-in "helix/themes.scm" string->color))
 
 (provide clamp
+         terminal-color-mode
          color-terminal?
+         indexed-terminal?
          ansi->hex
          closest-ansi
          safe-color
          ->color
-          color->hex)
+         terminal-color
+         color->hex)
 
 
 (define (clamp v min max)
@@ -22,87 +25,63 @@
 (define (clamp-f v)
   (clamp v 0.0 1.0))
 
-(define (color-terminal?)
-  (with-handler
-    (lambda (_) #f)
-    (let ([ct (env-var "COLORTERM")])
-      (or (equal? ct "truecolor")
-          (equal? ct "24bit")))))
+(define (color-env name)
+  (with-handler (lambda (_) "") (or (env-var name) "")))
+
+(define *terminal-color-mode* #f)
+
+(define (detect-terminal-color-mode)
+  (define override (string-downcase (color-env "HELIX_COLOR_MODE")))
+  (define colorterm (string-downcase (color-env "COLORTERM")))
+  (define term (string-downcase (color-env "TERM")))
+  (cond [(equal? override "direct") 'direct]
+        [(equal? override "indexed") 'indexed]
+        [(equal? override "ansi") 'ansi]
+        [(or (equal? (current-os!) "windows")
+             (equal? colorterm "truecolor")
+             (equal? colorterm "24bit")
+             (not (string=? (color-env "WSL_DISTRO_NAME") ""))
+             (string-contains? term "truecolor")
+             (string-contains? term "direct"))
+         'direct]
+        [(string-contains? term "256color") 'indexed]
+        [else 'ansi]))
+
+(define (terminal-color-mode)
+  (unless *terminal-color-mode*
+    (set! *terminal-color-mode* (detect-terminal-color-mode)))
+  *terminal-color-mode*)
+
+(define (color-terminal?) (equal? (terminal-color-mode) 'direct))
+(define (indexed-terminal?) (equal? (terminal-color-mode) 'indexed))
 
 ;; ── ANSI named colors ────────────────────────────────────────────
 
 (define *ansi-colors*
-  (list (list "black"         "#000000")
-        (list "maroon"        "#800000")
-        (list "green"         "#008000")
-        (list "olive"         "#808000")
-        (list "navy"          "#000080")
-        (list "purple"        "#800080")
-        (list "teal"          "#008080")
-        (list "silver"        "#C0C0C0")
-        (list "gray"          "#808080")
-        (list "red"           "#FF0000")
-        (list "lime"          "#00FF00")
-        (list "yellow"        "#FFFF00")
-        (list "blue"          "#0000FF")
-        (list "fuchsia"       "#FF00FF")
-        (list "aqua"          "#00FFFF")
-        (list "white"         "#FFFFFF")
-        (list "grey"          "#808080")
-        (list "darkgray"      "#555555")
-        (list "darkgrey"      "#555555")
-        (list "darkslategray" "#2F4F4F")
-        (list "darkslategrey" "#2F4F4F")
-        (list "dimgray"       "#696969")
-        (list "dimgrey"       "#696969")
-        (list "lightgray"     "#D3D3D3")
-        (list "lightgrey"     "#D3D3D3")
-        (list "gainsboro"     "#DCDCDC")
-        (list "whitesmoke"    "#F5F5F5")
-        (list "slategray"     "#708090")
-        (list "slategrey"     "#708090")
-        (list "lightslategray" "#778899")
-        (list "lightslategrey" "#778899")
-        (list "darkcyan"      "#008B8B")
-        (list "darkgreen"     "#006400")
-        (list "darkred"       "#8B0000")
-        (list "darkblue"      "#00008B")
-        (list "darkmagenta"   "#8B008B")
-        (list "darkyellow"    "#BDB76B")
-        (list "cadetblue"     "#5F9EA0")
-        (list "lightsteelblue" "#B0C4DE")
-        (list "steelblue"     "#4682B4")
-        (list "mediumaquamarine" "#66CDAA")
-        (list "darkseagreen"  "#8FBC8F")
-        (list "lightsalmon"   "#FFA07A")
-        (list "indianred"     "#CD5C5C")
-        (list "orchid"        "#DA70D6")
-        (list "khaki"         "#F0E68C")
-        (list "cyan"          "#00FFFF")
-        (list "magenta"       "#FF00FF")
-        (list "coral"         "#FF7F50")
-        (list "tomato"        "#FF6347")
-        (list "gold"          "#FFD700")
-        (list "orange"        "#FFA500")
-        (list "skyblue"       "#87CEEB")
-        (list "plum"          "#DDA0DD")
-        (list "tan"           "#D2B48C")
-        (list "beige"         "#F5F5DC")
-        (list "ivory"         "#FFFFF0")
-        (list "crimson"       "#DC143C")
-        (list "chocolate"     "#D2691E")
-        (list "sienna"        "#A0522D")
-        (list "salmon"        "#FA8072")
-        (list "goldenrod"     "#DAA520")
-        (list "peru"          "#CD853F")
-        (list "burlywood"     "#DEB887")
-        (list "navajowhite"   "#FFDEAD")
-        (list "moccasin"      "#FFE4B5")
-        (list "wheat"         "#F5DEB3")))
+  (list (list "black"         "#000000" 0)
+        (list "red"           "#800000" 1)
+        (list "green"         "#008000" 2)
+        (list "yellow"        "#808000" 3)
+        (list "blue"          "#000080" 4)
+        (list "magenta"       "#800080" 5)
+        (list "cyan"          "#008080" 6)
+        (list "light-gray"    "#C0C0C0" 7)
+        (list "gray"          "#808080" 8)
+        (list "light-red"     "#FF0000" 9)
+        (list "light-green"   "#00FF00" 10)
+        (list "light-yellow"  "#FFFF00" 11)
+        (list "light-blue"    "#0000FF" 12)
+        (list "light-magenta" "#FF00FF" 13)
+        (list "light-cyan"    "#00FFFF" 14)
+        (list "white"         "#FFFFFF" 15)))
 
 (define (ansi->hex name)
   (define entry (assoc name *ansi-colors*))
   (if entry (cadr entry) #f))
+
+(define (ansi-index name)
+  (define entry (assoc name *ansi-colors*))
+  (and entry (list-ref entry 2)))
 
 (define (parse-hex hex)
   (list (string->number (substring hex 1 3) 16)
@@ -128,23 +107,93 @@
             *ansi-colors*)
   best-name)
 
+(define (xterm-channel index)
+  (if (= index 0) 0 (+ 55 (* index 40))))
+
+(define (xterm-index-rgb index)
+  (if (< index 232)
+      (let* ([offset (- index 16)]
+             [r (quotient offset 36)]
+             [g (quotient (modulo offset 36) 6)]
+             [b (modulo offset 6)])
+        (list (xterm-channel r) (xterm-channel g) (xterm-channel b)))
+      (let ([gray (+ 8 (* (- index 232) 10))])
+        (list gray gray gray))))
+
+(define (closest-indexed-index hex)
+  (define target (parse-hex hex))
+  (let loop ([index 17] [best 16]
+             [best-distance (color-dist target (xterm-index-rgb 16))])
+    (if (> index 255)
+        best
+        (let ([distance (color-dist target (xterm-index-rgb index))])
+          (if (< distance best-distance)
+              (loop (+ index 1) index distance)
+              (loop (+ index 1) best best-distance))))))
+
+(define *indexed-color-cache* (hash))
+(define *ansi-color-cache* (hash))
+(define *ansi-semantic-overrides*
+  (hash "#2e3440" 0
+        "#4c566a" 8
+        "#464f62" 8
+        "#546075" 8
+        "#d8dee9" 7
+        "#eceff4" 15
+        "#5e81ac" 12
+        "#81a1c1" 12
+        "#88c0d0" 14
+        "#8fbcbb" 14
+        "#a3be8c" 10
+        "#d08770" 9
+        "#bf616a" 9
+        "#b48ead" 13
+        "#ebcb8b" 11))
+
+(define (cached-indexed-color hex)
+  (define cached (hash-try-get *indexed-color-cache* hex))
+  (if cached
+      cached
+      (let ([color (Color/Indexed (closest-indexed-index hex))])
+        (set! *indexed-color-cache* (hash-insert *indexed-color-cache* hex color))
+        color)))
+
+(define (cached-ansi-color hex)
+  (define cached (hash-try-get *ansi-color-cache* hex))
+  (if cached
+      cached
+      (let* ([semantic-index
+               (hash-try-get *ansi-semantic-overrides* (string-downcase hex))]
+             [color
+               (Color/Indexed
+                 (or semantic-index (ansi-index (closest-ansi hex)) 7))])
+        (set! *ansi-color-cache* (hash-insert *ansi-color-cache* hex color))
+        color)))
+
 (define (safe-color color)
   (cond
     [(not color) #f]
-    [(string? color)
-     (if (or (color-terminal?) (not (starts-with? color "#")))
-         color
-         (closest-ansi color))]
     [(color-terminal?) color]
     [else
-     (with-handler
-       (lambda (_) #f)
-       (closest-ansi (color->hex color)))]))
+     (define hex
+       (if (string? color)
+           (if (starts-with? color "#") color (ansi->hex color))
+           (with-handler (lambda (_) #f) (color->hex color))))
+     (and hex
+          (if (indexed-terminal?)
+              (cached-indexed-color hex)
+              (cached-ansi-color hex)))]))
 
 (define (->color c)
   (if (string? c)
-      (string->color (if (starts-with? c "#") c (ansi->hex c)))
+      (if (starts-with? c "#")
+          (string->color c)
+          (let ([index (ansi-index c)])
+            (if index (Color/Indexed index) (string->color c))))
       c))
+
+(define (terminal-color color)
+  (->color (safe-color color)))
 
 (define hex-digits "0123456789ABCDEF")
 
@@ -156,15 +205,17 @@
         (loop (+ i 1)))))
 
 (define (color->hex c)
-  (let ([r (Color-red c)]
-        [g (Color-green c)]
-        [b (Color-blue c)])
-    (if (and (number? r) (number? g) (number? b))
-        (string-append "#"
-          (byte->hex r)
-          (byte->hex g)
-          (byte->hex b))
-        "#5E81AC")))
+  (with-handler
+    (lambda (_) "#5E81AC")
+    (let ([r (Color-red c)]
+          [g (Color-green c)]
+          [b (Color-blue c)])
+      (if (and (number? r) (number? g) (number? b))
+          (string-append "#"
+            (byte->hex r)
+            (byte->hex g)
+            (byte->hex b))
+          "#5E81AC"))))
 
 ;; ── RGB ↔ HSL conversion ────────────────────────────────────────
 

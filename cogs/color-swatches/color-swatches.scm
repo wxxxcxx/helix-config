@@ -5,6 +5,7 @@
                   refresh-all-language-configs!
                   set-lsp-config!))
 (require (only-in "helix/static.scm" get-init-scm-path))
+(require (only-in "cogs/color.scm" color-terminal?))
 
 (provide color-swatches-init)
 
@@ -54,7 +55,7 @@
       (not (equal? (color-swatches-server-entry-name entry) server-name)))
     servers))
 
-(define (color-swatches-configure-language! language-name)
+(define (color-swatches-configure-language! language-name enabled?)
   (define config (get-language-config language-name))
   (when config
     (define servers (or (hash-try-get config 'language-servers) '()))
@@ -64,7 +65,9 @@
       language-name
       (hash "name" language-name
             "language-servers"
-            (append without-colors (list color-swatches-server-name))))))
+            (if enabled?
+                (append without-colors (list color-swatches-server-name))
+                without-colors)))))
 
 (define (color-swatches-init)
   (define config-root (parent-name (get-init-scm-path)))
@@ -72,14 +75,16 @@
   (define language-names
     (color-swatches-language-names
       (color-swatches-runtime-file config-root)))
-  (lsp (hash 'display-color-swatches #t))
-  (set-lsp-config!
-    color-swatches-server-name
-    (hash "name" color-swatches-server-name
-          "command" "steel"
-          "args" (list server-path)))
+  (define enabled? (color-terminal?))
+  (lsp (hash 'display-color-swatches enabled?))
+  (when enabled?
+    (set-lsp-config!
+      color-swatches-server-name
+      (hash "name" color-swatches-server-name
+            "command" "steel"
+            "args" (list server-path))))
   (for-each
     (lambda (language-name)
-      (color-swatches-configure-language! language-name))
+      (color-swatches-configure-language! language-name enabled?))
     language-names)
   (refresh-all-language-configs!))
