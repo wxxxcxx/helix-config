@@ -26,7 +26,7 @@
 (require "statusline.scm")
 (statusline-init)
 
-;; Embedded terminal. Run ./setup.sh once before loading this configuration.
+;; Embedded terminal. Run `steel setup.scm` once before loading this configuration.
 (when (string=? (or (with-handler (lambda (_) #f) (env-var "TERM")) "") "")
   (steel.meta.set-env-var! "TERM" "xterm-256color"))
 (when (string=? (or (with-handler (lambda (_) #f) (env-var "COLORTERM")) "") "")
