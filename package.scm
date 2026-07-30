@@ -11,12 +11,12 @@
 ;; Pure Steel wrapper around Forge. Requiring this module never mutates the
 ;; filesystem; callers explicitly choose install, clean, or list operations.
 
-(define path-separator (if (equal? (current-os!) "windows") "\\" "/"))
+(define package-path-separator (path-separator))
 
 (define (package-path-join base child)
-  (if (ends-with? base path-separator)
+  (if (ends-with? base package-path-separator)
       (string-append base child)
-      (string-append base path-separator child)))
+      (string-append base package-path-separator child)))
 
 (define (package-valid-name? name)
   (and (string? name)
