@@ -414,7 +414,8 @@
 
 (define (ft-state-set! key value)
   (cond [(equal? key 'layout)
-         (ft-apply-editor-clipping! (car value))
+         (when *ft-active*
+           (ft-apply-editor-clipping! (car value)))
          (set! *ft-content-height* (list-ref value 1))
          (ft-scroll-to-visible!)]
         [(equal? key 'bounds) (set! *ft-bounds* value)]))
@@ -458,7 +459,7 @@
                    [(equal? mode 'hsplit) (helix.hsplit path)]
                    [else (helix.open path)])))
          (if close?
-             (begin (file-tree-close) event-result/close)
+             (begin (file-tree-close) event-result/consume)
              (begin (set! *ft-focused?* #f) event-result/ignore))]))
 
 (define (ft-open-selected) (ft-open-selected-as 'normal 'configured))
@@ -511,7 +512,7 @@
 ;; Close file tree.
 (define (ft-action-quit)
   (file-tree-close)
-  event-result/close)
+  event-result/consume)
 
 (define (ft-action-down) (ft-move! 1) event-result/consume)
 (define (ft-action-up) (ft-move! -1) event-result/consume)

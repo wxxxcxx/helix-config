@@ -47,6 +47,7 @@
   (unless (equal? (current-os!) "windows")
     (set-option! 'clipboard-provider
                  (if (equal? (current-os!) "macos") "pasteboard" "xclip")))
+  (set-option! 'mouse-yank-register "+")
   (set-option! 'default-yank-register "+")
   (jump-label-alphabet "fjdkslarueiwoqpvncmxz")
   (helix.theme
