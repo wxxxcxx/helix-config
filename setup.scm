@@ -8,11 +8,20 @@
       #:revision "68f2fc6fa7b68141c6b3f020325ac1751b5fc512"
       #:verify "term.scm")))
 
+(define (setup-script-argument? value)
+  (and (string? value)
+       (with-handler (lambda (_) #f)
+         (string=? (file-name value) "setup.scm"))))
+
 (define (setup-arguments)
   (define arguments (command-line))
-  (if (ends-with? (car arguments) "steel")
-      (drop arguments 2)
-      (drop arguments 1)))
+  (cond [(null? arguments) '()]
+        ;; `steel setup.scm ...`, including steel.exe and renamed launchers.
+        [(and (not (null? (cdr arguments)))
+              (setup-script-argument? (list-ref arguments 1)))
+         (drop arguments 2)]
+        ;; Direct/shebang execution starts with setup.scm itself.
+        [else (drop arguments 1)]))
 
 (define (setup-help)
   (displayln "Usage: steel setup.scm [install|list|clean] [--force]")
