@@ -40,6 +40,8 @@
                        path))
        (filter path-exists? *ivy-recent-files*)))
 
+;;@doc
+;; Open a recently used file.
 (define (ivy-recent-file)
   (ivy-read "Recent file  " (ivy-recent-file-candidates)
             #:accept (lambda (candidate) (open (IvyCandidate-value candidate)))

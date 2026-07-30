@@ -3,6 +3,7 @@
 
 (require "helix/configuration.scm")
 (require "helix/components.scm")
+(require (only-in "helix/commands.scm" theme))
 (require "cogs/color.scm")
 (require (only-in "themes/woz.scm" register-woz-theme))
 (require (only-in "themes/woz-indexed.scm" register-woz-indexed-theme))
@@ -50,7 +51,7 @@
   (set-option! 'mouse-yank-register "+")
   (set-option! 'default-yank-register "+")
   (jump-label-alphabet "fjdkslarueiwoqpvncmxz")
-  (helix.theme
+  (theme
     (cond [(color-terminal?) "woz"]
           [(indexed-terminal?) "woz-indexed"]
           [else "woz-ansi"])))

@@ -1,6 +1,7 @@
 (require "helix/editor.scm")
 (require (only-in "helix/commands.scm" goto-line))
 (require (only-in "helix/static.scm"
+                  align_view_center
                   get-current-line-number
                   current-selection->string))
 (require (only-in "cogs/ivy/core.scm"
@@ -10,6 +11,12 @@
 (require-builtin helix/core/text as text.)
 
 (provide ivy-search)
+
+(define (ivy-search-accept candidate)
+  (goto-line (IvyCandidate-value candidate))
+  ;; Closing the picker restores its saved viewport. Preview may already have
+  ;; moved the cursor, so goto-line alone can be a no-op with the cursor hidden.
+  (align_view_center))
 
 (define (ivy-search-document-lines)
   (define focus (editor-focus))
@@ -27,6 +34,7 @@
                                         content)
                           result)))))))
 
+;;@doc
 ;; Search the current buffer with an overview and live line preview.
 (define (ivy-search)
   (define origin (get-current-line-number))
@@ -40,5 +48,5 @@
             #:initial initial
             #:history 'buffer-search
             #:preview (lambda (candidate) (goto-line (IvyCandidate-value candidate)))
-            #:accept (lambda (candidate) (goto-line (IvyCandidate-value candidate)))
+            #:accept ivy-search-accept
             #:cancel (lambda (_) (goto-line origin))))

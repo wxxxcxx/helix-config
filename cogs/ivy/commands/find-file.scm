@@ -47,8 +47,9 @@
   (ivy-update! (find-file-prompt directory)
                (find-file-candidates directory)))
 
-;; Keep filtering and confirming within one directory at a time. The picker only
-;; closes after a file is chosen.
+;;@doc
+;; Find a file from the current directory.
+;; The picker stays open while navigating between directories.
 (define (ivy-find-file)
   (define current-file (with-handler (lambda (_) #f) (cx->current-file)))
   (set! *ivy-find-file-directory*

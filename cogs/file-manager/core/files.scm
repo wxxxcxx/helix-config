@@ -1,4 +1,5 @@
 (require "helix/misc.scm")
+(require (only-in "cogs/file-manager/core/collections.scm" fm-member?))
 
 (provide fm-take fm-drop
          fm-base-name fm-entry-label fm-path-label fm-parent-dir fm-read-dir-names
@@ -187,11 +188,7 @@
     "nix" "prisma" "php" "pl" "diff" "vim" "org"
     "lock" "toml" "xml" "conf" "ini" "cfg"))
   (define ext (fm-file-ext path))
-  (define (fm-member value values)
-    (cond [(null? values) #f]
-          [(equal? value (car values)) #t]
-          [else (fm-member value (cdr values))]))
-  (fm-member ext text-exts))
+  (fm-member? ext text-exts))
 
 (define (fm-read-bounded-line port max-width)
   (let loop ([remaining (max 1 max-width)] [result ""] [seen? #f])

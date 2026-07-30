@@ -92,6 +92,8 @@
                 (cons (IvyCandidate shown-label annotation doc-id search)
                       result))))))
 
+;;@doc
+;; Switch to an open buffer.
 (define (ivy-buffer)
   (ivy-read "Buffer  " (ivy-buffer-candidates)
             #:history 'buffer

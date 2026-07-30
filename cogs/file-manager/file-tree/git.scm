@@ -1,20 +1,15 @@
 (require "cogs/file-manager/core/files.scm")
+(require (only-in "cogs/file-manager/core/collections.scm"
+                  fm-add-unique
+                  fm-member?))
 
 (provide ft-git-read ft-git-parse-output ft-git-path-kinds
          ft-git-read-ignored ft-git-parse-ignored ft-git-ignored?)
 
 (define *ft-git-kind-order* (list 'conflict 'deleted 'renamed 'modified 'added))
 
-(define (ft-git-member? value values)
-  (cond [(null? values) #f]
-        [(equal? value (car values)) #t]
-        [else (ft-git-member? value (cdr values))]))
-
-(define (ft-git-add value values)
-  (if (ft-git-member? value values) values (cons value values)))
-
 (define (ft-git-normalize-kinds kinds)
-  (filter (lambda (kind) (ft-git-member? kind kinds)) *ft-git-kind-order*))
+  (filter (lambda (kind) (fm-member? kind kinds)) *ft-git-kind-order*))
 
 (define (ft-git-merge-kinds left right)
   (ft-git-normalize-kinds (append left right)))
@@ -27,11 +22,11 @@
         [(string-contains? code "?") (list 'added)]
         [else
          (define kinds '())
-         (when (string-contains? code "D") (set! kinds (ft-git-add 'deleted kinds)))
-         (when (string-contains? code "R") (set! kinds (ft-git-add 'renamed kinds)))
-         (when (string-contains? code "M") (set! kinds (ft-git-add 'modified kinds)))
+         (when (string-contains? code "D") (set! kinds (fm-add-unique 'deleted kinds)))
+         (when (string-contains? code "R") (set! kinds (fm-add-unique 'renamed kinds)))
+         (when (string-contains? code "M") (set! kinds (fm-add-unique 'modified kinds)))
          (when (or (string-contains? code "A") (string-contains? code "C"))
-           (set! kinds (ft-git-add 'added kinds)))
+           (set! kinds (fm-add-unique 'added kinds)))
          (if (null? kinds) (list 'modified) (ft-git-normalize-kinds kinds))]))
 
 (define (ft-git-add-status root code relative-path table)

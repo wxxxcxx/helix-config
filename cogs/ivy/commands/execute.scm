@@ -78,7 +78,8 @@
       (set-warning! (string-append "Command failed: " (to-string error-value))))
     ((IvyCandidate-value candidate))))
 
-;; Execute a command from the active keymap plus essential typable commands.
+;;@doc
+;; Search and execute a command from the active keymap.
 (define (ivy-commands)
   (ivy-read "Commands  " (ivy-commands-candidates)
             #:history 'commands

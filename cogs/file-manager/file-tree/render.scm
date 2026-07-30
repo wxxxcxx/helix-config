@@ -4,14 +4,10 @@
 (require (only-in "cogs/indicators/style.scm" make-style))
 (require (only-in "cogs/statusline-palette.scm" major-bg))
 (require "cogs/file-manager/core/files.scm")
+(require (only-in "cogs/file-manager/core/collections.scm" fm-member?))
 (require "cogs/file-manager/file-tree/git.scm")
 
 (provide make-file-tree-render)
-
-(define (ft-render-member? value values)
-  (cond [(null? values) #f]
-        [(equal? value (car values)) #t]
-        [else (ft-render-member? value (cdr values))]))
 
 (define (ft-render-row-path row) (list-ref row 1))
 (define (ft-render-row-depth row) (car row))
@@ -48,14 +44,14 @@
 (define (ft-render-row-leading row marked)
   (define path (ft-render-row-path row))
   (define depth (ft-render-row-depth row))
-  (string-append (if (ft-render-member? path marked) "* " "  ")
+  (string-append (if (fm-member? path marked) "* " "  ")
                  (ft-render-indent depth)))
 
 (define (ft-render-row-icon row root expanded icon-style)
   (define path (ft-render-row-path row))
   (define root? (string=? path root))
   (define dir? (is-dir? path))
-  (define expanded? (and dir? (ft-render-member? path expanded)))
+  (define expanded? (and dir? (fm-member? path expanded)))
   (if dir?
       (ft-render-directory-icon root? expanded?)
       (file-icon (fm-entry-label path) #:icon-style icon-style)))

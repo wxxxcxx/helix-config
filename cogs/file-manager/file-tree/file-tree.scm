@@ -4,6 +4,9 @@
 (require (only-in "helix/static.scm" cx->current-file))
 (require (prefix-in helix. "helix/commands.scm"))
 (require "cogs/file-manager/core/files.scm")
+(require (only-in "cogs/file-manager/core/collections.scm"
+                  fm-add-unique
+                  fm-member?))
 (require "cogs/file-manager/core/actions.scm")
 (require "cogs/file-manager/core/session.scm")
 (require "cogs/file-manager/core/modal.scm")
@@ -21,6 +24,7 @@
 
 (define *ft-active* #f)
 (define *ft-focused?* #f)
+(define *ft-mouse-pressed?* #f)
 (define *ft-root* "")
 (define *ft-workspace-root* "")
 (define *ft-expanded* '())
@@ -59,14 +63,6 @@
   (set-editor-clip-left! 0)
   (set-editor-clip-right! 0))
 
-(define (ft-member? value values)
-  (cond [(null? values) #f]
-        [(equal? value (car values)) #t]
-        [else (ft-member? value (cdr values))]))
-
-(define (ft-add value values)
-  (if (ft-member? value values) values (cons value values)))
-
 (define (ft-remove value values)
   (cond [(null? values) '()]
         [(equal? value (car values)) (cdr values)]
@@ -83,7 +79,7 @@
 
 (define (ft-node-rows path depth)
   (define row (list depth path))
-  (if (and (is-dir? path) (ft-member? path *ft-expanded*))
+  (if (and (is-dir? path) (fm-member? path *ft-expanded*))
       (cons row
             (ft-flatten
               (map (lambda (child) (ft-node-rows child (+ depth 1)))
@@ -133,10 +129,10 @@
   (let loop ([current start])
     (when (and (not (string=? current ""))
                (not (string=? current (fm-parent-dir current))))
-      (set! *ft-expanded* (ft-add current *ft-expanded*))
+      (set! *ft-expanded* (fm-add-unique current *ft-expanded*))
       (unless (string=? current *ft-root*)
         (loop (fm-parent-dir current)))))
-  (set! *ft-expanded* (ft-add *ft-root* *ft-expanded*)))
+  (set! *ft-expanded* (fm-add-unique *ft-root* *ft-expanded*)))
 
 (define (ft-follow-path! path)
   (when (and path (path-exists? path) (ft-path-under-root? path))
@@ -440,9 +436,9 @@
   (define path (ft-selected-path))
   (when (and path (is-dir? path))
     (set! *ft-expanded*
-          (if (ft-member? path *ft-expanded*)
+          (if (fm-member? path *ft-expanded*)
               (ft-remove path *ft-expanded*)
-              (ft-add path *ft-expanded*)))
+              (fm-add-unique path *ft-expanded*)))
     (ft-rebuild!)))
 
 (define (ft-open-selected-as mode close-policy)
@@ -471,7 +467,7 @@
 (define (ft-parent)
   (define row (ft-selected-row))
   (define path (and row (ft-row-path row)))
-  (cond [(and path (is-dir? path) (ft-member? path *ft-expanded*))
+  (cond [(and path (is-dir? path) (fm-member? path *ft-expanded*))
          (ft-toggle-selected!)]
         [path (ft-select-path! (fm-parent-dir path))])
   event-result/consume)
@@ -597,7 +593,7 @@
   (and (string=? *ft-key-prefix* "")
        (not *ft-help-visible?*)
        (not *ft-pending-action*)
-       (ft-member? (event->key-event event) *ft-global-passthrough-keys*)))
+       (fm-member? (event->key-event event) *ft-global-passthrough-keys*)))
 
 (define (ft-handle-mapped-key event)
   (define had-prefix? (not (string=? *ft-key-prefix* "")))
@@ -657,6 +653,12 @@
   (when index (set! *ft-selected* index))
   index)
 
+(define (ft-mouse-down-kind? kind)
+  (and (>= kind 0) (<= kind 2)))
+
+(define (ft-mouse-up-kind? kind)
+  (and (>= kind 3) (<= kind 5)))
+
 (define (ft-open-selected-from-mouse!)
   (define path (ft-selected-path))
   (cond [(not path) event-result/consume]
@@ -672,14 +674,28 @@
   (define kind (event-mouse-kind event))
   (if (not (ft-mouse-inside-tree? event))
       (begin
-        (when (= kind 0) (set! *ft-focused?* #f))
+        (when (ft-mouse-down-kind? kind)
+          (set! *ft-focused?* #f)
+          (set! *ft-mouse-pressed?* #f))
+        (when (ft-mouse-up-kind? kind)
+          (set! *ft-mouse-pressed?* #f))
         event-result/ignore)
       (cond [(= kind 0)
+             (set! *ft-mouse-pressed?* #t)
              (if (ft-focus-mouse-row! event)
                  (ft-open-selected-from-mouse!)
                  event-result/consume)]
-            [(= kind 1)
+            [(or (= kind 1) (= kind 2))
+             (set! *ft-mouse-pressed?* #t)
              (ft-focus-mouse-row! event)
+             event-result/consume]
+            [(ft-mouse-up-kind? kind)
+             ;; Some terminal emulators consume the mouse-down used to
+             ;; reactivate their window but still forward its mouse-up.
+             (define activation-click? (not *ft-mouse-pressed?*))
+             (set! *ft-mouse-pressed?* #f)
+             (when activation-click?
+               (ft-focus-mouse-row! event))
              event-result/consume]
             [(= kind 10)
              (set! *ft-focused?* #t)
@@ -694,6 +710,9 @@
 (define (ft-handle-event state event)
   (cond
     [(mouse-event? event) (ft-handle-mouse event)]
+    [(focus-lost-event? event)
+     (set! *ft-mouse-pressed?* #f)
+     event-result/ignore]
     [(not *ft-focused?*) event-result/ignore]
     [(ft-global-passthrough? event) event-result/ignore]
     [(and *ft-help-visible?* (key-event-escape? event))
@@ -713,12 +732,15 @@
      event-result/consume]
     [else (ft-handle-mapped-key event)]))
 
+;;@doc
+;; Open or focus the persistent file tree.
 (define (file-tree-open)
   (if *ft-active*
       (set! *ft-focused?* #t)
       (begin
         (set! *ft-active* #t)
         (set! *ft-focused?* #t)
+        (set! *ft-mouse-pressed?* #f)
         (set! *ft-bounds* #f)
         (set! *ft-root* "")
         (set! *ft-workspace-root* (helix-find-workspace))
@@ -747,6 +769,7 @@
 (define (file-tree-close)
   (set! *ft-active* #f)
   (set! *ft-focused?* #f)
+  (set! *ft-mouse-pressed?* #f)
   (set! *ft-bounds* #f)
   (set! *ft-key-prefix* "")
   (set! *ft-help-visible?* #f)

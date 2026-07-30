@@ -18,6 +18,8 @@
 (define (ivy-theme-apply candidate)
   (theme (IvyCandidate-value candidate)))
 
+;;@doc
+;; Preview and select an editor theme.
 (define (ivy-theme)
   (define original (current-theme-name))
   (ivy-read "Theme  " (ivy-theme-candidates original)

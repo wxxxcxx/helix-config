@@ -8,6 +8,7 @@
 (require "cogs/file-manager/file-explorer/bookmarks-view.scm")
 (require "cogs/file-manager/file-explorer/preview.scm")
 (require "cogs/file-manager/core/files.scm")
+(require (only-in "cogs/file-manager/core/collections.scm" fm-member?))
 (require "cogs/file-manager/core/actions.scm")
 (require "cogs/file-manager/core/session.scm")
 (require "cogs/file-manager/core/modal.scm")
@@ -410,12 +411,7 @@
 
 ;; ── Selection and filesystem operations ────────────────────────
 
-(define (fe-member? value values)
-  (cond [(null? values) #f]
-        [(equal? value (car values)) #t]
-        [else (fe-member? value (cdr values))]))
-
-(define (fe-marked? path) (fe-member? path (fm-session-marked *fe-session*)))
+(define (fe-marked? path) (fm-member? path (fm-session-marked *fe-session*)))
 
 (define (fe-operation-targets)
   (define current (fe-current-entry))
@@ -689,6 +685,8 @@
     [(equal? *fe-pending-action* 'copy-register) (fe-do-copy-register-key event)]
     [else (fe-handle-mapped-key event)]))
 
+;;@doc
+;; Open the three-column file explorer.
 (define (file-explorer-open)
   (when *fe-active* (file-explorer-close))
   (set! *fe-active* #t)

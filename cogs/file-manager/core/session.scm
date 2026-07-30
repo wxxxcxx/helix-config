@@ -1,3 +1,5 @@
+(require (only-in "cogs/file-manager/core/collections.scm" fm-member?))
+
 (provide fm-session-empty
          fm-session-marked fm-session-clipboard fm-session-mode fm-session-register
          fm-session-toggle-mark fm-session-stage fm-session-clear-clipboard
@@ -15,11 +17,6 @@
 (define (fm-session-mode session) (FmSession-mode session))
 (define (fm-session-register session) (FmSession-register session))
 
-(define (fm-list-member? value values)
-  (cond [(null? values) #f]
-        [(equal? value (car values)) #t]
-        [else (fm-list-member? value (cdr values))]))
-
 (define (fm-list-remove value values)
   (cond [(null? values) '()]
         [(equal? value (car values)) (fm-list-remove value (cdr values))]
@@ -32,11 +29,11 @@
         [else (cons (car values) (fm-list-replace value replacement (cdr values)))]))
 
 (define (fm-remove-paths values paths)
-  (filter (lambda (value) (not (fm-list-member? value paths))) values))
+  (filter (lambda (value) (not (fm-member? value paths))) values))
 
 (define (fm-session-toggle-mark session path)
   (define marked (FmSession-marked session))
-  (FmSession (if (fm-list-member? path marked)
+  (FmSession (if (fm-member? path marked)
                  (fm-list-remove path marked)
                  (cons path marked))
              (FmSession-clipboard session)

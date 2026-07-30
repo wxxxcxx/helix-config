@@ -1,9 +1,11 @@
 (require "helix/components.scm")
 (require (only-in "helix/misc.scm"
+                  enqueue-thread-local-callback
                   get-active-lsp-clients
                   lsp-client-initialized?
                   lsp-client-name
-                  lsp-client-offset-encoding))
+                  lsp-client-offset-encoding
+                  push-component!))
 
 (provide lsp-status)
 

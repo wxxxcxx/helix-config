@@ -2,6 +2,7 @@
 (require (only-in "cogs/color.scm" terminal-color))
 (require (only-in "cogs/file-manager/core/file-style.scm" file-icon file-color))
 (require "cogs/file-manager/core/files.scm")
+(require (only-in "cogs/file-manager/core/collections.scm" fm-member?))
 (require "cogs/file-manager/file-explorer/bookmarks.scm")
 (require "cogs/file-manager/file-explorer/preview.scm")
 
@@ -15,11 +16,6 @@
 (define (fe-border-style) (theme-scope-ref "ui.help"))
 
 (define FE-DIR-ICON "󰉋")
-
-(define (fe-member? value values)
-  (cond [(null? values) #f]
-        [(equal? value (car values)) #t]
-        [else (fe-member? value (cdr values))]))
 
 (define (make-file-explorer-render state-ref state-set! config-ref)
   (lambda (state rect frame)
@@ -111,9 +107,9 @@
                          (cond
                            [(and entry (is-dir? entry))
                             (let* ([name (fm-entry-label entry)]
-                                   [staged? (and markable? (and clipboard-mode (fe-member? entry clipboard)))]
+                                   [staged? (and markable? (and clipboard-mode (fm-member? entry clipboard)))]
                                    [bookmark-key (fe-bookmark-key-for-path bookmarks entry)]
-                                   [mark (cond [(and markable? (fe-member? entry marked)) "* "]
+                                   [mark (cond [(and markable? (fm-member? entry marked)) "* "]
                                                [bookmark-key (string-append (string bookmark-key) " ")]
                                                [else "  "])]
                                    [icon-str (string-append FE-DIR-ICON " ")]
@@ -126,9 +122,9 @@
                               (frame-set-string! frame (+ col-x (fm-display-width mark) (fm-display-width icon-str)) row-y display row-style))]
                            [entry
                             (let* ([name (fm-entry-label entry)]
-                                   [staged? (and markable? (and clipboard-mode (fe-member? entry clipboard)))]
+                                   [staged? (and markable? (and clipboard-mode (fm-member? entry clipboard)))]
                                    [bookmark-key (fe-bookmark-key-for-path bookmarks entry)]
-                                   [mark (cond [(and markable? (fe-member? entry marked)) "* "]
+                                   [mark (cond [(and markable? (fm-member? entry marked)) "* "]
                                                [bookmark-key (string-append (string bookmark-key) " ")]
                                                [else "  "])]
                                    [icon-style-option (config-ref 'icon-style)]

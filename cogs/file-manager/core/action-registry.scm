@@ -1,3 +1,5 @@
+(require (only-in "helix/misc.scm" set-warning!))
+
 (provide fm-make-action-registry
          fm-action-description
          fm-action-known?

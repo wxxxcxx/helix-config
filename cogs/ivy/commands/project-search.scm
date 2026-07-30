@@ -94,6 +94,8 @@
   (goto-line (IvyProjectMatch-line match))
   (goto-column (max 0 (- (IvyProjectMatch-column match) 1))))
 
+;;@doc
+;; Search text across the current project.
 (define (ivy-project-search)
   (define root (get-helix-cwd))
   (set! *ivy-project-search-query* #f)
