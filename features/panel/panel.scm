@@ -30,6 +30,7 @@
          panel-init
          panel-component-mode
          panel-mode
+         panel-register-focus-hook!
          panel-register-key!
          panel-register-mode!
          panel-show!
@@ -50,6 +51,7 @@
 (define *panel-focused-mode* #f)
 (define *panel-fullscreen-mode* #f)
 (define *panel-key-handlers* '())
+(define *panel-focus-hooks* '())
 
 ;; A panel mode is a lifecycle contract. Components own their own Helix surface
 ;; and input handling; Panel only coordinates layout, focus and fullscreen state.
@@ -83,6 +85,14 @@
   (set! *panel-key-handlers*
         (cons (list key-event handler)
               (panel-remove-key-handler key-event *panel-key-handlers*))))
+
+(define (panel-register-focus-hook! handler)
+  (unless (procedure? handler)
+    (error! "panel: focus hook must be a procedure"))
+  (set! *panel-focus-hooks* (cons handler *panel-focus-hooks*)))
+
+(define (panel-notify-focus! name)
+  (for-each (lambda (handler) (handler name)) *panel-focus-hooks*))
 
 (define (panel-key-handler event)
   (and (key-event? event)
@@ -261,12 +271,16 @@
   (unless (equal? *panel-focused-mode* name)
     (panel-blur-current!)
     (set! *panel-focused-mode* name)
-    ((hash-get (panel-mode-ref slot name) 'focus))))
+    ((hash-get (panel-mode-ref slot name) 'focus))
+    (panel-notify-focus! name)))
 
 (define (panel-focus-editor!)
+  (define previous *panel-focused-mode*)
   (panel-exit-fullscreen!)
   (panel-blur-current!)
-  (set! *panel-focused-mode* #f))
+  (set! *panel-focused-mode* #f)
+  (when previous
+    (panel-notify-focus! #f)))
 
 (define (panel-call-layout! slot left right bottom)
   (define active (panel-active-mode slot))

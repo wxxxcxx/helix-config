@@ -1,7 +1,9 @@
 (require "helix/editor.scm")
 (require "helix/misc.scm")
 (require "helix/static.scm")
-(require (only-in "features/panel/panel.scm" panel-focused-mode))
+(require (only-in "features/panel/panel.scm"
+                  panel-focused-mode
+                  panel-register-focus-hook!))
 
 (provide input-source-configure! input-source-autoconfigure! input-source-init
          input-source-get input-source-switch input-source-to-default input-source-back input-source-reset!)
@@ -22,7 +24,7 @@
   (equal? mode *insert-mode*))
 
 ;; Native terminal focus does not change Helix's editor mode. Treat it as an
-;; input context of its own so app focus events do not force the source to ABC.
+;; input context of its own when handling mode switches.
 (define (terminal-focused?)
   (equal? (panel-focused-mode) 'terminal))
 
@@ -118,6 +120,15 @@
 (define (input-source-reset!)
   (set! *previous-source* #f))
 
+(define (input-source-editor-focus-to-default!)
+  (unless (or (insert-mode? (editor-mode))
+              (terminal-focused?))
+    (input-source-to-default)))
+
+(define (input-source-panel-focus-to-default! mode)
+  (when (and mode (not (equal? mode 'terminal)))
+    (input-source-to-default)))
+
 ;; ── Platform Detection ──────────────────────────────────────────
 
 (define (config-dir)
@@ -176,10 +187,9 @@
                              (not (terminal-focused?)))
                     (input-source-to-default)))))
             (register-hook 'terminal-focus-gained
-              (lambda ()
-                (unless (or (insert-mode? (editor-mode))
-                            (terminal-focused?))
-                   (input-source-to-default)))))
+              (lambda () (input-source-editor-focus-to-default!)))
+            (panel-register-focus-hook! input-source-panel-focus-to-default!)
+            (input-source-editor-focus-to-default!))
           (set-warning! (string-append
                            "im-switch: no supported tool found "
                            "(tried macism, fcitx5-remote, ibus, and Windows). "
