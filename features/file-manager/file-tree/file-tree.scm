@@ -698,6 +698,8 @@
     [(focus-lost-event? event)
      (set! *ft-mouse-pressed?* #f)
      event-result/ignore]
+    [(focus-gained-event? event)
+     event-result/ignore]
     [(not *ft-focused?*) event-result/ignore]
     [(and *ft-help-visible?* (key-event-escape? event))
      (set! *ft-help-visible?* #f)
