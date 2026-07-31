@@ -20,5 +20,18 @@ Features provide modes while user configuration chooses their placement:
 ```
 
 Only one mode is active in a slot. Left and right modes may be visible together.
-The current Terminal adapter uses the bottom slot lifecycle and side insets while
-`steel-pty` continues to calculate and render its native bottom rectangle.
+
+Hosted modes give Panel their renderer, event handler, and focus callbacks.
+PanelHost renders each mode in its slot, focuses it on a click, forwards keyboard
+events only to the focused mode, and returns focus to the editor when a click is
+outside every hosted slot. A mode can explicitly release focus after an action:
+
+```scheme
+(panel-focus! 'file-tree)
+(panel-focus-editor!)
+```
+
+The current Terminal adapter is a native mode: Panel owns its lifecycle, logical
+focus, and side insets, while `steel-pty/panel.scm` retains its private component
+and bottom rectangle. File Tree is a hosted mode and does not push its own Helix
+component.

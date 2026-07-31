@@ -1,4 +1,4 @@
-(require (only-in "steel-pty/term.scm"
+(require (only-in "steel-pty/panel.scm"
                   new-term
                   open-term
                   raise-terminal-if-active!

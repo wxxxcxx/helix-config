@@ -71,13 +71,13 @@
 
 (define (make-file-tree-render state-ref state-set! config-ref)
   (lambda (state rect frame)
-    (define area-w (area-width rect))
-    (define area-h (area-height rect))
+    ;; PanelHost has already resolved the configured side and width. Rendering
+    ;; against the supplied rectangle keeps layout ownership in Panel.
     (define side (config-ref 'side))
-    (define width (min (config-ref 'width) (max 1 (- area-w 2))))
-    (define height area-h)
-    (define x (if (equal? side 'right) (- area-w width) 0))
-    (define y 0)
+    (define width (max 1 (area-width rect)))
+    (define height (max 1 (area-height rect)))
+    (define x (area-x rect))
+    (define y (area-y rect))
     (define has-divider? (> width 1))
     (define content-x (if (and has-divider? (equal? side 'right)) (+ x 1) x))
     (define content-w (if has-divider? (- width 1) width))

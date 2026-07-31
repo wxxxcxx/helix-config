@@ -66,7 +66,9 @@
     (file-manager-init)
     (helix.keymaps.keymap (global)
       (normal (space (e file-explorer-open)
-                     (t file-tree-toggle))))))
+                     ;; Space t is an open/focus command. File Tree owns `q`
+                     ;; for explicit close while it has focus.
+                     (t file-tree-open))))))
 
 ;; Loading a command-only feature makes it available to the command palette.
 (use-feature lsp-status

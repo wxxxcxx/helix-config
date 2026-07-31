@@ -9,7 +9,7 @@
 (require (only-in "features/ivy/commands/project-search.scm" ivy-project-search))
 (require (only-in "features/ivy/commands/recent-file.scm" ivy-recent-file))
 (require (only-in "features/ivy/commands/theme.scm" ivy-theme))
-(require (only-in "steel-pty/term.scm"
+(require (only-in "steel-pty/panel.scm"
                   hide-terminal
                   kill-active-terminal
                   new-term

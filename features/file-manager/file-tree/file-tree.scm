@@ -18,6 +18,7 @@
 (require "features/file-manager/file-tree/render.scm")
 (require (only-in "features/panel/panel.scm"
                   panel-close!
+                  panel-focus-editor!
                   panel-mode
                   panel-show!
                   panel-toggle!))
@@ -28,8 +29,6 @@
          file-tree-configure!
          file-tree-panel-mode
          file-tree-toggle)
-
-(struct FileTreeState ())
 
 (define *ft-active* #f)
 (define *ft-focused?* #f)
@@ -407,13 +406,15 @@
 (define ft-render-base
   (make-file-tree-render ft-state-ref ft-state-set! ft-config-ref))
 
-(define (ft-render state rect frame)
-  (ft-render-base state rect frame)
+(define (ft-panel-render slot-area root-area frame)
+  (ft-render-base (hash) slot-area frame)
+  ;; Which-key is an editor overlay, so it uses the full host area rather than
+  ;; being clipped to the File Tree slot.
   (if *ft-help-visible?*
       (fm-which-key-help-render! "File Tree" (ft-config-ref 'keybindings)
-                                 *ft-actions* rect frame)
+                                 *ft-actions* root-area frame)
       (fm-which-key-render! (ft-config-ref 'keybindings) *ft-actions*
-                            *ft-key-prefix* rect frame)))
+                            *ft-key-prefix* root-area frame)))
 
 (define (ft-move! delta)
   (set! *ft-selected*
@@ -444,7 +445,7 @@
                    [else (helix.open path)])))
          (if close?
              (begin (file-tree-close) event-result/consume)
-             (begin (set! *ft-focused?* #f) event-result/ignore))]))
+             (begin (panel-focus-editor!) event-result/ignore))]))
 
 (define (ft-open-selected) (ft-open-selected-as 'normal 'configured))
 (define (ft-open-selected-normal) (ft-open-selected-as 'normal 'never))
@@ -634,7 +635,6 @@
 
 (define (ft-focus-mouse-row! event)
   (define index (ft-mouse-row-index event))
-  (set! *ft-focused?* #t)
   (set! *ft-help-visible?* #f)
   (set! *ft-key-prefix* "")
   (set! *ft-pending-action* #f)
@@ -655,7 +655,7 @@
          event-result/consume]
         [else
          (enqueue-thread-local-callback (lambda () (helix.open path)))
-         (set! *ft-focused?* #f)
+         (panel-focus-editor!)
          event-result/consume]))
 
 (define (ft-handle-mouse event)
@@ -663,7 +663,7 @@
   (if (not (ft-mouse-inside-tree? event))
       (begin
         (when (ft-mouse-down-kind? kind)
-          (set! *ft-focused?* #f)
+          (panel-focus-editor!)
           (set! *ft-mouse-pressed?* #f))
         (when (ft-mouse-up-kind? kind)
           (set! *ft-mouse-pressed?* #f))
@@ -686,11 +686,9 @@
                (ft-focus-mouse-row! event))
              event-result/consume]
             [(= kind 10)
-             (set! *ft-focused?* #t)
              (ft-move! 1)
              event-result/consume]
             [(= kind 11)
-             (set! *ft-focused?* #t)
              (ft-move! -1)
              event-result/consume]
             [else event-result/consume])))
@@ -715,41 +713,41 @@
      (set! *ft-pending-action* #f)
      (set! *ft-session* (fm-session-reset-register *ft-session*))
      (if (string=? *ft-key-prefix* "")
-         (set! *ft-focused?* #f)
+         (panel-focus-editor!)
          (set! *ft-key-prefix* ""))
      event-result/consume]
     [else (ft-handle-mapped-key event)]))
 
 ;; Panel calls these private lifecycle functions after reserving the slot.
 (define (ft-open!)
-  (if *ft-active*
-      (set! *ft-focused?* #t)
-      (begin
-        (set! *ft-active* #t)
-        (set! *ft-focused?* #t)
-        (set! *ft-mouse-pressed?* #f)
-        (set! *ft-bounds* #f)
-        (set! *ft-root* "")
-        (set! *ft-workspace-root* (helix-find-workspace))
-        (set! *ft-key-prefix* "")
-        (set! *ft-help-visible?* #f)
-        (set! *ft-pending-action* #f)
-        (set! *ft-session* (fm-session-empty))
-        (set! *ft-root-back* '())
-        (set! *ft-root-forward* '())
-        (set! *ft-root-views* (hash))
-        (set! *ft-expanded* '())
-        (set! *ft-selected* 0)
-        (set! *ft-scroll* 0)
-        (set! *ft-show-hidden* #f)
-        (ft-clear-yank!)
-        (fm-keymap-validate! (ft-config-ref 'keybindings) *ft-actions*)
-        (ft-activate-root! *ft-workspace-root*)
-        (enqueue-thread-local-callback
-          (lambda ()
-            (push-component!
-              (new-component! "file-tree" (FileTreeState) ft-render
-                              (hash "handle_event" ft-handle-event))))))))
+  (unless *ft-active*
+    (set! *ft-active* #t)
+    (set! *ft-mouse-pressed?* #f)
+    (set! *ft-bounds* #f)
+    (set! *ft-root* "")
+    (set! *ft-workspace-root* (helix-find-workspace))
+    (set! *ft-key-prefix* "")
+    (set! *ft-help-visible?* #f)
+    (set! *ft-pending-action* #f)
+    (set! *ft-session* (fm-session-empty))
+    (set! *ft-root-back* '())
+    (set! *ft-root-forward* '())
+    (set! *ft-root-views* (hash))
+    (set! *ft-expanded* '())
+    (set! *ft-selected* 0)
+    (set! *ft-scroll* 0)
+    (set! *ft-show-hidden* #f)
+    (ft-clear-yank!)
+    (fm-keymap-validate! (ft-config-ref 'keybindings) *ft-actions*)
+    (ft-activate-root! *ft-workspace-root*)))
+
+(define (ft-focus!)
+  (set! *ft-focused?* #t))
+
+(define (ft-blur!)
+  (set! *ft-focused?* #f)
+  (set! *ft-mouse-pressed?* #f)
+  (set! *ft-key-prefix* ""))
 
 (define (ft-close!)
   (set! *ft-active* #f)
@@ -758,8 +756,7 @@
   (set! *ft-bounds* #f)
   (set! *ft-key-prefix* "")
   (set! *ft-help-visible?* #f)
-  (set! *ft-pending-action* #f)
-  (pop-last-component-by-name! "file-tree"))
+  (set! *ft-pending-action* #f))
 
 (define (ft-panel-layout! slot width _left _right _bottom)
   (ft-set-panel-layout! slot width))
@@ -770,7 +767,12 @@
              (ft-panel-layout! slot width 0 0 0)
              (ft-open!))
     #:close ft-close!
-    #:layout ft-panel-layout!))
+    #:layout ft-panel-layout!
+    #:hosted #t
+    #:render ft-panel-render
+    #:handle-event (lambda (event) (ft-handle-event (hash) event))
+    #:focus ft-focus!
+    #:blur ft-blur!))
 
 ;;@doc
 ;; Open or focus the persistent file tree in its registered panel slot.
