@@ -1,4 +1,5 @@
 (require (only-in "steel-pty/panel.scm"
+                  kill-active-terminal
                   new-term
                   open-term
                   raise-terminal-if-active!
@@ -9,6 +10,7 @@
                   switch-term
                   switch-term-previous
                   toggle-terminal-fullscreen))
+(require (only-in "helix/misc.scm" set-warning!))
 (require (only-in "features/panel/panel.scm"
                   panel-fullscreen-mode
                   panel-mode
@@ -18,6 +20,7 @@
 ;; Run `steel setup.scm` once before initializing the embedded terminal.
 
 (provide terminal-init
+         terminal-kill-active
          terminal-new
          terminal-open
          terminal-panel-mode
@@ -35,6 +38,17 @@
 ;;@doc
 ;; Switch to the previous terminal.
 (define terminal-switch-previous switch-term-previous)
+
+;;@doc
+;; Kill the currently active embedded terminal.
+(define (terminal-kill-active)
+  ;; `steel-pty` assumes a terminal exists. Keep this command safe as a user
+  ;; binding so pressing it without an active terminal does not break the flow.
+  (with-handler
+    (lambda (error-value)
+      (set-warning! (string-append "terminal: no active terminal to kill: "
+                                   (to-string error-value))))
+    (kill-active-terminal)))
 
 (define (terminal-panel-layout! slot size left right bottom)
   (unless (equal? slot 'bottom)

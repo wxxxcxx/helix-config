@@ -27,6 +27,7 @@
   (:load "features/panel/panel.scm")
   (:config
     (panel-init)
+    (panel-register-key! "C-ret" panel-toggle-fullscreen!)
     ;; Fullscreen belongs to the panel layout, independent of the active mode.
     (helix.keymaps.keymap (global)
       (normal ("C-ret" panel-toggle-fullscreen!))
@@ -41,10 +42,12 @@
     (helix.keymaps.keymap (global)
       (normal ("C-`" terminal-open)
               ("C-S-`" terminal-new)
+              ("C-S-w" terminal-kill-active)
               ("C-pageup" terminal-switch-previous)
               ("C-pagedown" terminal-switch-next))
       (insert ("C-`" terminal-open)
               ("C-S-`" terminal-new)
+              ("C-S-w" terminal-kill-active)
               ("C-pageup" terminal-switch-previous)
               ("C-pagedown" terminal-switch-next)))))
 

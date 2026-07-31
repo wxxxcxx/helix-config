@@ -8,6 +8,11 @@
                   area-width
                   area-x
                   area-y
+                  event-result/consume
+                  event-result/ignore
+                  event->key-event
+                  key-event?
+                  string->key-event
                   new-component!))
 (require (only-in "helix/misc.scm"
                   enqueue-thread-local-callback
@@ -24,6 +29,7 @@
          panel-init
          panel-component-mode
          panel-mode
+         panel-register-key!
          panel-register-mode!
          panel-show!
          panel-size
@@ -42,6 +48,7 @@
   (hash 'left #f 'right #f 'bottom #f))
 (define *panel-focused-mode* #f)
 (define *panel-fullscreen-mode* #f)
+(define *panel-key-handlers* '())
 
 ;; A panel mode is a lifecycle contract. Components own their own Helix surface
 ;; and input handling; Panel only coordinates layout, focus and fullscreen state.
@@ -56,6 +63,39 @@
         'focus focus
         'blur blur
         'fullscreen fullscreen))
+
+(define (panel-remove-key-handler key-event handlers)
+  (cond [(null? handlers) '()]
+        [(equal? key-event (car (car handlers)))
+         (panel-remove-key-handler key-event (cdr handlers))]
+        [else
+         (cons (car handlers)
+               (panel-remove-key-handler key-event (cdr handlers)))]))
+
+(define (panel-normalize-key key)
+  (if (string? key) (string->key-event key) key))
+
+(define (panel-register-key! key handler)
+  (unless (procedure? handler)
+    (error! "panel: key handler must be a procedure"))
+  (define key-event (panel-normalize-key key))
+  (set! *panel-key-handlers*
+        (cons (list key-event handler)
+              (panel-remove-key-handler key-event *panel-key-handlers*))))
+
+(define (panel-key-handler event)
+  (and (key-event? event)
+       (let ([key-event (event->key-event event)])
+         (let loop ([handlers *panel-key-handlers*])
+           (cond [(null? handlers) #f]
+                 [(equal? key-event (car (car handlers))) (list-ref (car handlers) 1)]
+                 [else (loop (cdr handlers))])))))
+
+(define (panel-handle-ignored-event event fallback)
+  (define handler (panel-key-handler event))
+  (if handler
+      (begin (handler) event-result/consume)
+      fallback))
 
 (define (panel-component-mode #:name component-name
                               #:open open
@@ -72,11 +112,16 @@
     (define slot-area (and current-slot (panel-slot-area current-slot root)))
     (when slot-area
       (render slot-area root frame)))
+  (define (component-handle-event state event)
+    (define result (handle-event state event))
+    (if (equal? result event-result/ignore)
+        (panel-handle-ignored-event event result)
+        result))
   (define (push-self!)
     (pop-last-component-by-name! component-name)
     (push-component!
       (new-component! component-name (hash) component-render
-                      (hash "handle_event" handle-event))))
+                      (hash "handle_event" component-handle-event))))
   (define (raise-self!)
     (when active?
       (enqueue-thread-local-callback

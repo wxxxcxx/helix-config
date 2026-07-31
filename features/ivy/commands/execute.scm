@@ -11,12 +11,12 @@
 (require (only-in "features/ivy/commands/theme.scm" ivy-theme))
 (require (only-in "steel-pty/panel.scm"
                   hide-terminal
-                  kill-active-terminal
                   new-term
                   open-term
                   switch-term
                   switch-term-previous))
 (require (only-in "features/terminal/terminal.scm"
+                  terminal-kill-active
                   terminal-toggle-fullscreen))
 (require (only-in "features/ivy/command-catalog.scm" ivy-native-command-bindings))
 
@@ -59,7 +59,7 @@
                     (cons 'terminal-switch-previous switch-term-previous)
                     (cons 'terminal-fullscreen terminal-toggle-fullscreen)
                     (cons 'terminal-hide hide-terminal)
-                    (cons 'terminal-kill kill-active-terminal)
+                    (cons 'terminal-kill terminal-kill-active)
                     (cons 'ivy-commands ivy-commands))
               ivy-native-command-bindings)))
   (map (lambda (binding)

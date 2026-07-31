@@ -51,13 +51,16 @@ removes it on close, and renders into the current `panel-slot-area`:
 
 `panel-toggle-fullscreen!` maximizes the focused mode and restores its original
 slot on the next call. The key belongs in Panel configuration so every mode uses
-the same command:
+the same command. Register it both as a global binding and as a Panel fallback
+binding so focused panel components can delegate unhandled modified keys to
+Panel before the event reaches Helix's global keymap:
 
 ```scheme
 (use-feature panel
   (:load "features/panel/panel.scm")
   (:config
     (panel-init)
+    (panel-register-key! "C-ret" panel-toggle-fullscreen!)
     (helix.keymaps.keymap (global)
       (normal ("C-ret" panel-toggle-fullscreen!))
       (insert ("C-ret" panel-toggle-fullscreen!)))))

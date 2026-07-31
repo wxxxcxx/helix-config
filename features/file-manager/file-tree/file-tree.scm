@@ -572,18 +572,14 @@
 (define (ft-run-action action)
   (fm-action-run *ft-actions* action event-result/consume))
 
-(define *ft-global-passthrough-keys*
-  (list (string->key-event "C-`")
-        (string->key-event "C-S-`")
-        (string->key-event "C-ret")
-        (string->key-event "C-pageup")
-        (string->key-event "C-pagedown")))
+(define (ft-modified-key-event? event)
+  (and (key-event? event)
+       (not (= 0 (or (key-event-modifier event) 0)))))
 
-(define (ft-global-passthrough? event)
-  (and (string=? *ft-key-prefix* "")
-       (not *ft-help-visible?*)
-       (not *ft-pending-action*)
-       (fm-member? (event->key-event event) *ft-global-passthrough-keys*)))
+(define (ft-invalid-key-result had-prefix? event)
+  (if (and (not had-prefix?) (ft-modified-key-event? event))
+      event-result/ignore
+      event-result/consume))
 
 (define (ft-handle-mapped-key event)
   (define had-prefix? (not (string=? *ft-key-prefix* "")))
@@ -605,7 +601,7 @@
                                                *ft-key-prefix*)))
            (set-warning! (string-append "unknown key sequence: " value)))
          (set! *ft-key-prefix* "")
-         event-result/consume]))
+         (ft-invalid-key-result had-prefix? event)]))
 
 (define (ft-mouse-inside-tree? event)
   (and *ft-bounds*
@@ -703,7 +699,6 @@
      (set! *ft-mouse-pressed?* #f)
      event-result/ignore]
     [(not *ft-focused?*) event-result/ignore]
-    [(ft-global-passthrough? event) event-result/ignore]
     [(and *ft-help-visible?* (key-event-escape? event))
      (set! *ft-help-visible?* #f)
      event-result/consume]
