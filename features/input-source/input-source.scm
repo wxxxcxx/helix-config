@@ -1,6 +1,7 @@
 (require "helix/editor.scm")
 (require "helix/misc.scm")
 (require "helix/static.scm")
+(require (only-in "features/panel/panel.scm" panel-focused-mode))
 
 (provide input-source-configure! input-source-autoconfigure! input-source-init
          input-source-get input-source-switch input-source-to-default input-source-back input-source-reset!)
@@ -19,6 +20,11 @@
 
 (define (insert-mode? mode)
   (equal? mode *insert-mode*))
+
+;; Native terminal focus does not change Helix's editor mode. Treat it as an
+;; input context of its own so app focus events do not force the source to ABC.
+(define (terminal-focused?)
+  (equal? (panel-focused-mode) 'terminal))
 
 ;; ── Private Helpers ─────────────────────────────────────────────
 
@@ -165,11 +171,14 @@
               (lambda (event)
                 (let ([old (mode-switch-old event)]
                       [new (mode-switch-new event)])
-                  (when (and (insert-mode? old) (not (insert-mode? new)))
+                  (when (and (insert-mode? old)
+                             (not (insert-mode? new))
+                             (not (terminal-focused?)))
                     (input-source-to-default)))))
             (register-hook 'terminal-focus-gained
               (lambda ()
-                (unless (insert-mode? (editor-mode))
+                (unless (or (insert-mode? (editor-mode))
+                            (terminal-focused?))
                    (input-source-to-default)))))
           (set-warning! (string-append
                            "im-switch: no supported tool found "

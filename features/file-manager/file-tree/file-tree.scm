@@ -18,8 +18,9 @@
 (require "features/file-manager/file-tree/render.scm")
 (require (only-in "features/panel/panel.scm"
                   panel-close!
+                  panel-component-mode
+                  panel-focus!
                   panel-focus-editor!
-                  panel-mode
                   panel-show!
                   panel-toggle!))
 
@@ -668,30 +669,32 @@
         (when (ft-mouse-up-kind? kind)
           (set! *ft-mouse-pressed?* #f))
         event-result/ignore)
-      (cond [(= kind 0)
-             (set! *ft-mouse-pressed?* #t)
-             (if (ft-focus-mouse-row! event)
-                 (ft-open-selected-from-mouse!)
-                 event-result/consume)]
-            [(or (= kind 1) (= kind 2))
-             (set! *ft-mouse-pressed?* #t)
-             (ft-focus-mouse-row! event)
-             event-result/consume]
-            [(ft-mouse-up-kind? kind)
-             ;; Some terminal emulators consume the mouse-down used to
-             ;; reactivate their window but still forward its mouse-up.
-             (define activation-click? (not *ft-mouse-pressed?*))
-             (set! *ft-mouse-pressed?* #f)
-             (when activation-click?
-               (ft-focus-mouse-row! event))
-             event-result/consume]
-            [(= kind 10)
-             (ft-move! 1)
-             event-result/consume]
-            [(= kind 11)
-             (ft-move! -1)
-             event-result/consume]
-            [else event-result/consume])))
+      (begin
+        (panel-focus! 'file-tree)
+        (cond [(= kind 0)
+               (set! *ft-mouse-pressed?* #t)
+               (if (ft-focus-mouse-row! event)
+                   (ft-open-selected-from-mouse!)
+                   event-result/consume)]
+              [(or (= kind 1) (= kind 2))
+               (set! *ft-mouse-pressed?* #t)
+               (ft-focus-mouse-row! event)
+               event-result/consume]
+              [(ft-mouse-up-kind? kind)
+               ;; Some terminal emulators consume the mouse-down used to
+               ;; reactivate their window but still forward its mouse-up.
+               (define activation-click? (not *ft-mouse-pressed?*))
+               (set! *ft-mouse-pressed?* #f)
+               (when activation-click?
+                 (ft-focus-mouse-row! event))
+               event-result/consume]
+              [(= kind 10)
+               (ft-move! 1)
+               event-result/consume]
+              [(= kind 11)
+               (ft-move! -1)
+               event-result/consume]
+              [else event-result/consume]))))
 
 (define (ft-handle-event state event)
   (cond
@@ -762,15 +765,15 @@
   (ft-set-panel-layout! slot width))
 
 (define (file-tree-panel-mode)
-  (panel-mode
+  (panel-component-mode
+    #:name "file-tree"
     #:open (lambda (slot width)
              (ft-panel-layout! slot width 0 0 0)
              (ft-open!))
     #:close ft-close!
     #:layout ft-panel-layout!
-    #:hosted #t
     #:render ft-panel-render
-    #:handle-event (lambda (event) (ft-handle-event (hash) event))
+    #:handle-event ft-handle-event
     #:focus ft-focus!
     #:blur ft-blur!))
 

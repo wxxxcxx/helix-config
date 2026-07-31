@@ -8,9 +8,6 @@
                   area-width
                   area-x
                   area-y
-                  event-result/ignore
-                  mouse-event?
-                  mouse-event-within-area?
                   new-component!))
 (require (only-in "helix/misc.scm"
                   enqueue-thread-local-callback
@@ -23,11 +20,15 @@
          panel-focus!
          panel-focus-editor!
          panel-focused-mode
+         panel-fullscreen-mode
          panel-init
+         panel-component-mode
          panel-mode
          panel-register-mode!
          panel-show!
          panel-size
+         panel-slot-area
+         panel-toggle-fullscreen!
          panel-toggle!)
 
 (define *panel-slots* '(left right bottom))
@@ -39,28 +40,70 @@
   (hash 'left (hash) 'right (hash) 'bottom (hash)))
 (define *panel-active*
   (hash 'left #f 'right #f 'bottom #f))
-(define *panel-areas*
-  (hash 'left #f 'right #f 'bottom #f))
 (define *panel-focused-mode* #f)
-(define *panel-host-mounted?* #f)
+(define *panel-fullscreen-mode* #f)
 
-;; Hosted modes render inside PanelHost. Native modes such as steel-pty keep
-;; their own Helix component and use only the lifecycle/layout callbacks.
+;; A panel mode is a lifecycle contract. Components own their own Helix surface
+;; and input handling; Panel only coordinates layout, focus and fullscreen state.
 (define (panel-mode #:open open #:close close
                     #:layout [layout (lambda (_slot _size _left _right _bottom) void)]
-                    #:hosted [hosted #f]
-                    #:render [render (lambda (_slot-area _root-area _frame) void)]
-                    #:handle-event [handle-event (lambda (_event) event-result/ignore)]
                     #:focus [focus (lambda () void)]
-                    #:blur [blur (lambda () void)])
+                    #:blur [blur (lambda () void)]
+                    #:fullscreen [fullscreen (lambda (_enabled?) void)])
   (hash 'open open
         'close close
         'layout layout
-        'hosted hosted
-        'render render
-        'handle-event handle-event
         'focus focus
-        'blur blur))
+        'blur blur
+        'fullscreen fullscreen))
+
+(define (panel-component-mode #:name component-name
+                              #:open open
+                              #:close close
+                              #:render render
+                              #:handle-event handle-event
+                              #:layout [layout (lambda (_slot _size _left _right _bottom) void)]
+                              #:focus [focus (lambda () void)]
+                              #:blur [blur (lambda () void)]
+                              #:fullscreen [fullscreen (lambda (_enabled?) void)])
+  (define active? #f)
+  (define current-slot #f)
+  (define (component-render _state root frame)
+    (define slot-area (and current-slot (panel-slot-area current-slot root)))
+    (when slot-area
+      (render slot-area root frame)))
+  (define (push-self!)
+    (pop-last-component-by-name! component-name)
+    (push-component!
+      (new-component! component-name (hash) component-render
+                      (hash "handle_event" handle-event))))
+  (define (raise-self!)
+    (when active?
+      (enqueue-thread-local-callback
+        (lambda ()
+          (when active?
+            (push-self!))))))
+  (panel-mode
+    #:open (lambda (slot size)
+             (set! current-slot slot)
+             (set! active? #t)
+             (open slot size)
+             (push-self!))
+    #:close (lambda ()
+              (set! active? #f)
+              (close)
+              (pop-last-component-by-name! component-name))
+    #:layout (lambda (slot size left right bottom)
+               (set! current-slot slot)
+               (layout slot size left right bottom))
+    #:focus (lambda ()
+              (focus)
+              (raise-self!))
+    #:blur blur
+    #:fullscreen (lambda (enabled?)
+                   (fullscreen enabled?)
+                   (when enabled?
+                     (raise-self!)))))
 
 (define (panel-valid-slot? slot)
   (or (equal? slot 'left)
@@ -126,41 +169,35 @@
 (define (panel-active-size slot)
   (if (panel-active-mode slot) (panel-size slot) 0))
 
-(define (panel-mode-hosted? mode)
-  (hash-get mode 'hosted))
-
-(define (panel-active-hosted-mode slot)
-  (define active (panel-active-mode slot))
-  (and active
-       (let ([mode (panel-mode-ref slot active)])
-         (and (panel-mode-hosted? mode) mode))))
-
-(define (panel-any-hosted-mode-active?)
-  (or (panel-active-hosted-mode 'left)
-      (panel-active-hosted-mode 'right)
-      (panel-active-hosted-mode 'bottom)))
-
-(define (panel-sync-host!)
-  (define needed? (not (not (panel-any-hosted-mode-active?))))
-  (cond [(and needed? (not *panel-host-mounted?*))
-         (set! *panel-host-mounted?* #t)
-         (enqueue-thread-local-callback
-           (lambda ()
-             (when *panel-host-mounted?*
-               (pop-last-component-by-name! "panel-host")
-               (push-component!
-                 (new-component! "panel-host" (hash)
-                                 panel-host-render
-                                 (hash "handle_event" panel-host-handle-event))))))]
-        [(and (not needed?) *panel-host-mounted?*)
-         (set! *panel-host-mounted?* #f)
-         (enqueue-thread-local-callback
-           (lambda ()
-             (unless *panel-host-mounted?*
-               (pop-last-component-by-name! "panel-host"))))]))
-
 (define (panel-focused-mode)
   *panel-focused-mode*)
+
+(define (panel-fullscreen-mode)
+  *panel-fullscreen-mode*)
+
+(define (panel-set-mode-fullscreen! name enabled?)
+  (define slot (panel-slot-for-mode! name))
+  ((hash-get (panel-mode-ref slot name) 'fullscreen) enabled?))
+
+(define (panel-exit-fullscreen!)
+  (when *panel-fullscreen-mode*
+    (define name *panel-fullscreen-mode*)
+    (set! *panel-fullscreen-mode* #f)
+    (panel-set-mode-fullscreen! name #f)
+    (panel-apply-layout!)))
+
+;;@doc
+;; Toggle fullscreen for the focused panel mode.
+(define (panel-toggle-fullscreen!)
+  (when *panel-focused-mode*
+    (define name *panel-focused-mode*)
+    (if (equal? *panel-fullscreen-mode* name)
+        (panel-exit-fullscreen!)
+        (begin
+          (panel-exit-fullscreen!)
+          (set! *panel-fullscreen-mode* name)
+          (panel-set-mode-fullscreen! name #t)
+          (panel-apply-layout!)))))
 
 (define (panel-blur-current!)
   (when *panel-focused-mode*
@@ -172,12 +209,16 @@
   (define slot (panel-slot-for-mode! name))
   (unless (equal? (panel-active-mode slot) name)
     (error! (string-append "panel: cannot focus hidden mode " (to-string name))))
+  (when (and *panel-fullscreen-mode*
+             (not (equal? *panel-fullscreen-mode* name)))
+    (panel-exit-fullscreen!))
   (unless (equal? *panel-focused-mode* name)
     (panel-blur-current!)
     (set! *panel-focused-mode* name)
     ((hash-get (panel-mode-ref slot name) 'focus))))
 
 (define (panel-focus-editor!)
+  (panel-exit-fullscreen!)
   (panel-blur-current!)
   (set! *panel-focused-mode* #f))
 
@@ -188,14 +229,14 @@
     ((hash-get mode 'layout) slot (panel-size slot) left right bottom)))
 
 (define (panel-apply-layout!)
-  (define left (panel-active-size 'left))
-  (define right (panel-active-size 'right))
-  (define bottom (panel-active-size 'bottom))
+  (define left (if *panel-fullscreen-mode* 0 (panel-active-size 'left)))
+  (define right (if *panel-fullscreen-mode* 0 (panel-active-size 'right)))
+  (define bottom (if *panel-fullscreen-mode* 0 (panel-active-size 'bottom)))
   (set-editor-clip-left! left)
   (set-editor-clip-right! right)
-  ;; Native bottom modes may compute their pixel height from a fraction. Panel
-  ;; still clears stale clipping whenever the bottom slot becomes empty.
-  (unless (panel-active-mode 'bottom)
+  ;; Pixel height is known during rendering. Clear stale clipping immediately
+  ;; whenever the bottom slot becomes empty.
+  (when (or *panel-fullscreen-mode* (not (panel-active-mode 'bottom)))
     (set-editor-clip-bottom! 0))
   (for-each (lambda (slot) (panel-call-layout! slot left right bottom))
             *panel-slots*))
@@ -205,85 +246,54 @@
       (min (panel-size slot) (max 1 (- total-width reserved 1)))
       0))
 
-(define (panel-calculate-areas root)
+(define (panel-calc-left-width total-width)
+  (panel-side-width 'left total-width 0))
+
+(define (panel-calc-right-width total-width left-width)
+  (panel-side-width 'right total-width left-width))
+
+(define (panel-calc-bottom-height total-height)
+  (if (panel-active-mode 'bottom)
+      (max 1 (min total-height (round (* total-height (panel-size 'bottom)))))
+      0))
+
+(define (panel-slot-area slot root)
+  (panel-assert-slot! slot)
   (define x (area-x root))
   (define y (area-y root))
   (define width (area-width root))
   (define height (area-height root))
-  (define left (panel-side-width 'left width 0))
-  (define right (panel-side-width 'right width left))
-  (define bottom
-    (if (panel-active-mode 'bottom)
-        (max 1 (min height (round (* height (panel-size 'bottom)))))
-        0))
-  (set! *panel-areas*
-        (hash
-          'left (and (> left 0) (area x y left height))
-          'right (and (> right 0)
-                      (area (+ x (- width right)) y right height))
-          'bottom (and (> bottom 0)
-                       (area (+ x left)
-                             (+ y (- height bottom))
-                             (max 1 (- width left right))
-                             bottom)))))
-
-(define (panel-render-slot! slot root frame)
-  (define mode (panel-active-hosted-mode slot))
-  (define slot-area (hash-get *panel-areas* slot))
-  (when (and mode slot-area)
-    ((hash-get mode 'render) slot-area root frame)))
-
-(define (panel-host-render _state root frame)
-  (panel-calculate-areas root)
-  (for-each (lambda (slot) (panel-render-slot! slot root frame))
-            *panel-slots*))
-
-(define (panel-mouse-target event)
-  (cond [(and (panel-active-hosted-mode 'left)
-              (hash-get *panel-areas* 'left)
-              (mouse-event-within-area? event (hash-get *panel-areas* 'left)))
-         (panel-active-mode 'left)]
-        [(and (panel-active-hosted-mode 'right)
-              (hash-get *panel-areas* 'right)
-              (mouse-event-within-area? event (hash-get *panel-areas* 'right)))
-         (panel-active-mode 'right)]
-        [(and (panel-active-hosted-mode 'bottom)
-              (hash-get *panel-areas* 'bottom)
-              (mouse-event-within-area? event (hash-get *panel-areas* 'bottom)))
-         (panel-active-mode 'bottom)]
+  (define left (panel-calc-left-width width))
+  (define right (panel-calc-right-width width left))
+  (define bottom (panel-calc-bottom-height height))
+  (cond [(and *panel-fullscreen-mode*
+              (equal? slot (panel-slot-for-mode! *panel-fullscreen-mode*)))
+         root]
+        [*panel-fullscreen-mode* #f]
+        [(equal? slot 'left)
+         (and (> left 0) (area x y left height))]
+        [(equal? slot 'right)
+         (and (> right 0) (area (+ x (- width right)) y right height))]
+        [(equal? slot 'bottom)
+         (and (> bottom 0)
+              (area (+ x left)
+                    (+ y (- height bottom))
+                    (max 1 (- width left right))
+                    bottom))]
         [else #f]))
-
-(define (panel-dispatch-event name event)
-  (define slot (panel-find-slot name))
-  (if (and slot (equal? (panel-active-mode slot) name))
-      ((hash-get (panel-mode-ref slot name) 'handle-event) event)
-      event-result/ignore))
-
-(define (panel-host-handle-event _state event)
-  (if (mouse-event? event)
-      (let ([target (panel-mouse-target event)])
-        (if target
-            (begin
-              (panel-focus! target)
-              (panel-dispatch-event target event))
-            (begin
-              (panel-focus-editor!)
-              event-result/ignore)))
-      (if *panel-focused-mode*
-          (panel-dispatch-event *panel-focused-mode* event)
-          event-result/ignore)))
 
 (define (panel-close-slot! slot [name #f])
   (panel-assert-slot! slot)
   (define active (panel-active-mode slot))
   (when (and active (or (not name) (equal? active name)))
     (define mode (panel-mode-ref slot active))
+    (when (equal? *panel-fullscreen-mode* active)
+      (panel-exit-fullscreen!))
     (when (equal? *panel-focused-mode* active)
       (panel-focus-editor!))
     ((hash-get mode 'close))
     (set! *panel-active* (hash-insert *panel-active* slot #f))
-    (panel-apply-layout!)
-    (panel-sync-host!)))
+    (panel-apply-layout!)))
 
 (define (panel-show-in-slot! slot name [open-override #f])
   (panel-assert-slot! slot)
@@ -292,9 +302,8 @@
   (when (and active (not (equal? active name)))
     (panel-close-slot! slot active))
   (set! *panel-active* (hash-insert *panel-active* slot name))
-  (panel-sync-host!)
-  ;; Apply geometry before opening so native modes use the current slot sizes
-  ;; on their first frame, then again after opening to repair component order.
+  ;; Apply geometry before opening so the first component frame uses current slot
+  ;; sizes, then again after opening in case lifecycle state changed.
   (panel-apply-layout!)
   ((or open-override (hash-get mode 'open)) slot (panel-size slot))
   (panel-focus! name)
@@ -312,7 +321,9 @@
 (define (panel-toggle! name)
   (define slot (panel-slot-for-mode! name))
   (if (equal? (panel-active-mode slot) name)
-      (panel-close-slot! slot name)
+      (if (equal? *panel-focused-mode* name)
+          (panel-close-slot! slot name)
+          (panel-focus! name))
       (panel-show-in-slot! slot name)))
 
 (define (panel-close! name)

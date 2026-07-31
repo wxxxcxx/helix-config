@@ -15,8 +15,9 @@
                   new-term
                   open-term
                   switch-term
-                  switch-term-previous
-                  toggle-terminal-fullscreen))
+                  switch-term-previous))
+(require (only-in "features/terminal/terminal.scm"
+                  terminal-toggle-fullscreen))
 (require (only-in "features/ivy/command-catalog.scm" ivy-native-command-bindings))
 
 (provide ivy-commands)
@@ -56,7 +57,7 @@
                     (cons 'terminal-new new-term)
                     (cons 'terminal-switch switch-term)
                     (cons 'terminal-switch-previous switch-term-previous)
-                    (cons 'terminal-fullscreen toggle-terminal-fullscreen)
+                    (cons 'terminal-fullscreen terminal-toggle-fullscreen)
                     (cons 'terminal-hide hide-terminal)
                     (cons 'terminal-kill kill-active-terminal)
                     (cons 'ivy-commands ivy-commands))

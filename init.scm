@@ -25,7 +25,12 @@
 
 (use-feature panel
   (:load "features/panel/panel.scm")
-  (:config (panel-init)))
+  (:config
+    (panel-init)
+    ;; Fullscreen belongs to the panel layout, independent of the active mode.
+    (helix.keymaps.keymap (global)
+      (normal ("C-ret" panel-toggle-fullscreen!))
+      (insert ("C-ret" panel-toggle-fullscreen!)))))
 
 (use-feature terminal
   (:depends panel)
@@ -36,12 +41,10 @@
     (helix.keymaps.keymap (global)
       (normal ("C-`" terminal-open)
               ("C-S-`" terminal-new)
-              ("C-ret" terminal-toggle-fullscreen)
               ("C-pageup" terminal-switch-previous)
               ("C-pagedown" terminal-switch-next))
       (insert ("C-`" terminal-open)
               ("C-S-`" terminal-new)
-              ("C-ret" terminal-toggle-fullscreen)
               ("C-pageup" terminal-switch-previous)
               ("C-pagedown" terminal-switch-next)))))
 
@@ -75,6 +78,7 @@
   (:load "features/lsp-status/lsp-status.scm"))
 
 (use-feature input-source
+  (:depends panel)
   (:load "features/input-source/input-source.scm")
   (:config (input-source-init)))
 

@@ -10,8 +10,10 @@
                   switch-term-previous
                   toggle-terminal-fullscreen))
 (require (only-in "features/panel/panel.scm"
+                  panel-fullscreen-mode
                   panel-mode
-                  panel-show!))
+                  panel-show!
+                  panel-toggle-fullscreen!))
 
 ;; Run `steel setup.scm` once before initializing the embedded terminal.
 
@@ -34,18 +36,20 @@
 ;; Switch to the previous terminal.
 (define terminal-switch-previous switch-term-previous)
 
-(define (terminal-panel-layout! slot size left right _bottom)
+(define (terminal-panel-layout! slot size left right bottom)
   (unless (equal? slot 'bottom)
     (error! "terminal: panel mode must use the bottom slot"))
   (set-terminal-fraction size)
   (set-terminal-horizontal-insets! left right)
-  (raise-terminal-if-active!))
+  (when (or (> bottom 0) (equal? (panel-fullscreen-mode) 'terminal))
+    (raise-terminal-if-active!)))
 
 (define (terminal-panel-mode)
   (panel-mode
     #:open (lambda (_slot _size) (open-term))
     #:close hide-terminal
-    #:layout terminal-panel-layout!))
+    #:layout terminal-panel-layout!
+    #:fullscreen (lambda (_enabled?) (toggle-terminal-fullscreen))))
 
 ;;@doc
 ;; Open a new embedded terminal in the bottom panel.
@@ -60,8 +64,8 @@
 ;;@doc
 ;; Toggle terminal fullscreen mode.
 (define (terminal-toggle-fullscreen)
-  (panel-show! 'terminal
-               (lambda (_slot _size) (toggle-terminal-fullscreen))))
+  (panel-show! 'terminal)
+  (panel-toggle-fullscreen!))
 
 (define (terminal-configure-shell!)
   (define user-shell (with-handler (lambda (_) #f) (env-var "SHELL")))

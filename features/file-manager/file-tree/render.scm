@@ -71,8 +71,8 @@
 
 (define (make-file-tree-render state-ref state-set! config-ref)
   (lambda (state rect frame)
-    ;; PanelHost has already resolved the configured side and width. Rendering
-    ;; against the supplied rectangle keeps layout ownership in Panel.
+    ;; Panel resolves the configured side and width; File Tree owns the Helix
+    ;; component that renders into the supplied rectangle.
     (define side (config-ref 'side))
     (define width (max 1 (area-width rect)))
     (define height (max 1 (area-height rect)))
