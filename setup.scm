@@ -5,7 +5,7 @@
     (package-git-dependency
       #:name "steel-pty"
       #:url "https://github.com/wxxxcxx/steel-pty"
-      #:revision "82ad31e3bcee7f234f3fac0f0c58611180442991"
+      #:revision "2b2623ddae415f24db0bf80b8da2f081a0bae34f"
       #:verify "term.scm")))
 
 (define (setup-script-argument? value)

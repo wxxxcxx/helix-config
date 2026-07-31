@@ -66,6 +66,10 @@ Panel before the event reaches Helix's global keymap:
       (insert ("C-ret" panel-toggle-fullscreen!)))))
 ```
 
+The terminal adapter installs the same fallback through `steel-pty`'s
+ignored-event hook. Terminal-owned keys still go to the PTY first; ignored keys
+then pass through Panel before falling back to Helix globals.
+
 Terminal remains a native Helix component so it directly owns text input,
 paste events, and IME cursor placement. File Tree also owns its own Helix
 component through `panel-component-mode`.

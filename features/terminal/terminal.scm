@@ -1,17 +1,9 @@
-(require (only-in "steel-pty/panel.scm"
-                  kill-active-terminal
-                  new-term
-                  open-term
-                  raise-terminal-if-active!
-                  set-default-shell!
-                  set-terminal-horizontal-insets!
-                  set-terminal-fraction
-                  hide-terminal
-                  switch-term
-                  switch-term-previous
-                  toggle-terminal-fullscreen))
+;; Import all so newer steel-pty can expose the optional ignored-event hook
+;; without making this adapter fail to load against older installs.
+(require "steel-pty/panel.scm")
 (require (only-in "helix/misc.scm" set-warning!))
 (require (only-in "features/panel/panel.scm"
+                  panel-handle-ignored-event
                   panel-fullscreen-mode
                   panel-mode
                   panel-show!
@@ -86,5 +78,15 @@
   (when (and user-shell (path-exists? user-shell))
     (set-default-shell! user-shell)))
 
+(define (terminal-install-panel-fallback!)
+  (with-handler
+    (lambda (_)
+      (set-warning! "terminal: panel fallback hook unavailable; update steel-pty")
+      void)
+    ((eval 'set-terminal-ignored-event-handler!)
+     (lambda (event fallback)
+       (panel-handle-ignored-event event fallback)))))
+
 (define (terminal-init)
+  (terminal-install-panel-fallback!)
   (terminal-configure-shell!))

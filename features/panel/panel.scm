@@ -26,6 +26,7 @@
          panel-focus-editor!
          panel-focused-mode
          panel-fullscreen-mode
+         panel-handle-ignored-event
          panel-init
          panel-component-mode
          panel-mode
