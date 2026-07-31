@@ -7,7 +7,8 @@
                   file-tree-configure!
                   file-tree-init
                   file-tree-open
-                  file-tree-set-layout-hooks!))
+                  file-tree-panel-mode
+                  file-tree-toggle))
 
 (provide file-manager-init
          file-explorer-close
@@ -16,7 +17,8 @@
          file-tree-close
          file-tree-configure!
          file-tree-open
-         file-tree-set-layout-hooks!)
+         file-tree-panel-mode
+         file-tree-toggle)
 
 ;; Keep the public entry module free of startup effects so use-feature can
 ;; isolate load failures before any editor state is changed.

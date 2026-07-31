@@ -7,6 +7,7 @@ called from `init.scm`.
 
 - `editor/`: base editor options and theme registration
 - `statusline/`: statusline layout and indicators
+- `panel/`: left, right, and bottom slots with pluggable modes
 - `terminal/`: embedded terminal adapter
 - `ivy/`: picker UI and commands
 - `file-manager/`: one public feature containing the explorer and persistent tree
@@ -14,7 +15,6 @@ called from `init.scm`.
 - `color-swatches/`: language-server configuration for color previews
 - `lsp-status/`: LSP client status component and command
 - `splash/`: blank-start splash component
-- `workflows/`: cross-feature coordination
 - `ui/`: shared color, palette, and rendering primitives
 
 Global entry bindings are user policy: declare them beside the corresponding
@@ -25,6 +25,7 @@ so a broken feature cannot suppress bindings from healthy ones.
 Bindings used only while a component is active remain inside that component;
 they are part of its event protocol rather than the user's global configuration.
 
-`workflows/` may depend on multiple features. Other feature directories should
-depend only on their own files, `ui/`, or external Helix modules. This keeps
-cross-feature coupling visible at the composition layer.
+Panel modes depend on the shared `panel/` lifecycle API. Other feature
+directories should depend only on their own files, `ui/`, or external Helix
+modules. Cross-feature placement stays visible in `init.scm` through explicit
+mode registration.

@@ -5,27 +5,26 @@
                   set-default-shell!
                   set-terminal-horizontal-insets!
                   set-terminal-fraction
+                  hide-terminal
                   switch-term
                   switch-term-previous
                   toggle-terminal-fullscreen))
+(require (only-in "features/panel/panel.scm"
+                  panel-mode
+                  panel-show!))
 
 ;; Run `steel setup.scm` once before initializing the embedded terminal.
 
 (provide terminal-init
          terminal-new
          terminal-open
+         terminal-panel-mode
          terminal-raise-if-active!
          terminal-set-horizontal-insets!
          terminal-switch-next
          terminal-switch-previous
          terminal-toggle-fullscreen)
 
-;;@doc
-;; Open a new embedded terminal.
-(define terminal-new new-term)
-;;@doc
-;; Open or focus the embedded terminal.
-(define terminal-open open-term)
 (define terminal-raise-if-active! raise-terminal-if-active!)
 (define terminal-set-horizontal-insets! set-terminal-horizontal-insets!)
 ;;@doc
@@ -34,9 +33,35 @@
 ;;@doc
 ;; Switch to the previous terminal.
 (define terminal-switch-previous switch-term-previous)
+
+(define (terminal-panel-layout! slot size left right _bottom)
+  (unless (equal? slot 'bottom)
+    (error! "terminal: panel mode must use the bottom slot"))
+  (set-terminal-fraction size)
+  (set-terminal-horizontal-insets! left right)
+  (raise-terminal-if-active!))
+
+(define (terminal-panel-mode)
+  (panel-mode
+    #:open (lambda (_slot _size) (open-term))
+    #:close hide-terminal
+    #:layout terminal-panel-layout!))
+
+;;@doc
+;; Open a new embedded terminal in the bottom panel.
+(define (terminal-new)
+  (panel-show! 'terminal (lambda (_slot _size) (new-term))))
+
+;;@doc
+;; Open or focus the embedded terminal in the bottom panel.
+(define (terminal-open)
+  (panel-show! 'terminal))
+
 ;;@doc
 ;; Toggle terminal fullscreen mode.
-(define terminal-toggle-fullscreen toggle-terminal-fullscreen)
+(define (terminal-toggle-fullscreen)
+  (panel-show! 'terminal
+               (lambda (_slot _size) (toggle-terminal-fullscreen))))
 
 (define (terminal-configure-shell!)
   (define user-shell (with-handler (lambda (_) #f) (env-var "SHELL")))
@@ -44,5 +69,4 @@
     (set-default-shell! user-shell)))
 
 (define (terminal-init)
-  (set-terminal-fraction 2/5)
   (terminal-configure-shell!))

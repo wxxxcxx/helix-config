@@ -23,9 +23,15 @@
   (:load "features/statusline/statusline.scm")
   (:config (statusline-init)))
 
+(use-feature panel
+  (:load "features/panel/panel.scm")
+  (:config (panel-init)))
+
 (use-feature terminal
+  (:depends panel)
   (:load "features/terminal/terminal.scm")
   (:config
+    (panel-register-mode! 'bottom 'terminal (terminal-panel-mode))
     (terminal-init)
     (helix.keymaps.keymap (global)
       (normal ("C-`" terminal-open)
@@ -53,18 +59,14 @@
                      ("?" ivy-commands))))))
 
 (use-feature file-manager
+  (:depends panel)
   (:load "features/file-manager/file-manager.scm")
   (:config
+    (panel-register-mode! 'left 'file-tree (file-tree-panel-mode))
     (file-manager-init)
     (helix.keymaps.keymap (global)
       (normal (space (e file-explorer-open)
-                     (t file-tree-open))))))
-
-;; Cross-feature coordination runs only after every participant has had an
-;; independent chance to load and register its own behavior.
-(use-feature workflows
-  (:load "features/workflows/workflows.scm")
-  (:config (workflows-init)))
+                     (t file-tree-toggle))))))
 
 ;; Loading a command-only feature makes it available to the command palette.
 (use-feature lsp-status

@@ -16,10 +16,18 @@
 (require "features/file-manager/file-tree/git.scm")
 (require "features/file-manager/file-tree/config.scm")
 (require "features/file-manager/file-tree/render.scm")
+(require (only-in "features/panel/panel.scm"
+                  panel-close!
+                  panel-mode
+                  panel-show!
+                  panel-toggle!))
 
 (provide file-tree-init
-         file-tree-open file-tree-close file-tree-configure!
-         file-tree-set-layout-hooks!)
+         file-tree-open
+         file-tree-close
+         file-tree-configure!
+         file-tree-panel-mode
+         file-tree-toggle)
 
 (struct FileTreeState ())
 
@@ -44,25 +52,6 @@
 (define *ft-root-back* '())
 (define *ft-root-forward* '())
 (define *ft-root-views* (hash))
-(define *ft-layout-open-hook* (lambda (_side _width) void))
-(define *ft-layout-close-hook* (lambda () void))
-
-(define (file-tree-set-layout-hooks! on-open on-close)
-  (set! *ft-layout-open-hook* on-open)
-  (set! *ft-layout-close-hook* on-close))
-
-(define (ft-apply-editor-clipping! width)
-  (if (equal? (ft-config-ref 'side) 'right)
-      (begin
-        (set-editor-clip-left! 0)
-        (set-editor-clip-right! width))
-      (begin
-        (set-editor-clip-left! width)
-        (set-editor-clip-right! 0))))
-
-(define (ft-clear-editor-clipping!)
-  (set-editor-clip-left! 0)
-  (set-editor-clip-right! 0))
 
 (define (ft-remove value values)
   (cond [(null? values) '()]
@@ -411,8 +400,6 @@
 
 (define (ft-state-set! key value)
   (cond [(equal? key 'layout)
-         (when *ft-active*
-           (ft-apply-editor-clipping! (car value)))
          (set! *ft-content-height* (list-ref value 1))
          (ft-scroll-to-visible!)]
         [(equal? key 'bounds) (set! *ft-bounds* value)]))
@@ -733,9 +720,8 @@
      event-result/consume]
     [else (ft-handle-mapped-key event)]))
 
-;;@doc
-;; Open or focus the persistent file tree.
-(define (file-tree-open)
+;; Panel calls these private lifecycle functions after reserving the slot.
+(define (ft-open!)
   (if *ft-active*
       (set! *ft-focused?* #t)
       (begin
@@ -758,16 +744,14 @@
         (set! *ft-show-hidden* #f)
         (ft-clear-yank!)
         (fm-keymap-validate! (ft-config-ref 'keybindings) *ft-actions*)
-        (ft-apply-editor-clipping! (ft-config-ref 'width))
         (ft-activate-root! *ft-workspace-root*)
         (enqueue-thread-local-callback
           (lambda ()
             (push-component!
               (new-component! "file-tree" (FileTreeState) ft-render
-                              (hash "handle_event" ft-handle-event)))))
-        (*ft-layout-open-hook* (ft-config-ref 'side) (ft-config-ref 'width)))))
+                              (hash "handle_event" ft-handle-event))))))))
 
-(define (file-tree-close)
+(define (ft-close!)
   (set! *ft-active* #f)
   (set! *ft-focused?* #f)
   (set! *ft-mouse-pressed?* #f)
@@ -775,9 +759,31 @@
   (set! *ft-key-prefix* "")
   (set! *ft-help-visible?* #f)
   (set! *ft-pending-action* #f)
-  (ft-clear-editor-clipping!)
-  (*ft-layout-close-hook*)
   (pop-last-component-by-name! "file-tree"))
+
+(define (ft-panel-layout! slot width _left _right _bottom)
+  (ft-set-panel-layout! slot width))
+
+(define (file-tree-panel-mode)
+  (panel-mode
+    #:open (lambda (slot width)
+             (ft-panel-layout! slot width 0 0 0)
+             (ft-open!))
+    #:close ft-close!
+    #:layout ft-panel-layout!))
+
+;;@doc
+;; Open or focus the persistent file tree in its registered panel slot.
+(define (file-tree-open)
+  (panel-show! 'file-tree))
+
+;;@doc
+;; Toggle the persistent file tree panel.
+(define (file-tree-toggle)
+  (panel-toggle! 'file-tree))
+
+(define (file-tree-close)
+  (panel-close! 'file-tree))
 
 (define (file-tree-init)
   (register-hook 'document-focus-lost

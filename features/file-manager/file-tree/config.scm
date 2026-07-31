@@ -1,7 +1,7 @@
 (require "features/file-manager/core/keymap.scm")
 (require (only-in "features/file-manager/core/file-style.scm" file-icon-style?))
 
-(provide file-tree-configure! ft-config-ref)
+(provide file-tree-configure! ft-config-ref ft-set-panel-layout!)
 
 (define *ft-config*
   (hash
@@ -31,18 +31,19 @@
                        "[" 'root-back "]" 'root-forward "/" 'root-prompt)
                 "Goto / Action"))))
 
-(define (file-tree-configure! #:side [side #f] #:width [width #f]
-                             #:hide-on-open [hide-on-open 'unset]
+(define (ft-set-panel-layout! side width)
+  ;; Placement belongs to Panel; this internal adapter only updates the values
+  ;; consumed by the existing File Tree renderer.
+  (unless (or (equal? side 'left) (equal? side 'right))
+    (error! "file-tree: panel slot must be 'left or 'right"))
+  (unless (and (number? width) (>= width 16))
+    (error! "file-tree: panel width must be at least 16"))
+  (set! *ft-config* (hash-insert *ft-config* 'side side))
+  (set! *ft-config* (hash-insert *ft-config* 'width width)))
+
+(define (file-tree-configure! #:hide-on-open [hide-on-open 'unset]
                              #:icon-style [icon-style 'unset]
                              #:key [keybindings #f])
-  (when side
-    (unless (or (equal? side 'left) (equal? side 'right))
-      (error! "file-tree: side must be 'left or 'right"))
-    (set! *ft-config* (hash-insert *ft-config* 'side side)))
-  (when width
-    (unless (and (number? width) (>= width 24))
-      (error! "file-tree: width must be at least 24"))
-    (set! *ft-config* (hash-insert *ft-config* 'width width)))
   (unless (equal? hide-on-open 'unset)
     (unless (boolean? hide-on-open)
       (error! "file-tree: hide-on-open must be a boolean"))
