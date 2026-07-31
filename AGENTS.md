@@ -15,7 +15,6 @@ Helix 编辑器配置，基于 [mattwparas/helix](https://github.com/mattwparas/
 
 - `init.scm` 是唯一入口（启动时运行）。子模块在 require 时不得产生副作用 —— 用 `provide` 导出函数，在 `init.scm` 中调用它们。
 - 配置即函数调用：`(line-number 'relative)`、`(soft-wrap (sw-enable #t))`。
-- `init.scm` 在所有插件声明之后调用 `(smith-init)`。
 
 
 ## 风格与注意事项

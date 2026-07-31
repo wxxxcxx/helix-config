@@ -51,7 +51,7 @@
 
 ;; Usage:
 ;; (use-feature example
-;;   (:load "cogs/example.scm")
+;;   (:load "features/example/example.scm")
 ;;   (:config (example-init)))
 ;;
 ;; This isolates control flow, not state: effects completed before an exception

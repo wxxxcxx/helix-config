@@ -1,6 +1,7 @@
 ;; Run at startup. Helix context is bound to *helix.cx*.
 (require-builtin steel/meta as steel.meta.)
 (require (only-in "helix/configuration.scm" rainbow-brackets))
+(require (prefix-in helix.keymaps. "helix/keymaps.scm"))
 (require (only-in "helix/misc.scm" set-warning!))
 (require (only-in "use-feature.scm"
                   use-feature
@@ -14,42 +15,73 @@
 
 (rainbow-brackets #t)
 
-(use-feature default
-  (:load "default.scm")
-  (:config (default-init)))
+(use-feature editor
+  (:load "features/editor/editor.scm")
+  (:config (editor-init)))
 
 (use-feature statusline
-  (:load "statusline.scm")
+  (:load "features/statusline/statusline.scm")
   (:config (statusline-init)))
 
 (use-feature terminal
-  (:load "cogs/terminal.scm")
-  (:config (terminal-init)))
+  (:load "features/terminal/terminal.scm")
+  (:config
+    (terminal-init)
+    (helix.keymaps.keymap (global)
+      (normal ("C-`" terminal-open)
+              ("C-S-`" terminal-new)
+              ("C-ret" terminal-toggle-fullscreen)
+              ("C-pageup" terminal-switch-previous)
+              ("C-pagedown" terminal-switch-next))
+      (insert ("C-`" terminal-open)
+              ("C-S-`" terminal-new)
+              ("C-ret" terminal-toggle-fullscreen)
+              ("C-pageup" terminal-switch-previous)
+              ("C-pagedown" terminal-switch-next)))))
 
+(use-feature ivy
+  (:load "features/ivy/commands.scm")
+  (:config
+    (ivy-init)
+    (helix.keymaps.keymap (global)
+      (normal ("/" ivy-search)
+              (space (f ivy-find-file)
+                     (b ivy-buffer)
+                     ("/" ivy-project-search)
+                     (r ivy-recent-file)
+                     (T ivy-theme)
+                     ("?" ivy-commands))))))
+
+(use-feature file-manager
+  (:load "features/file-manager/file-manager.scm")
+  (:config
+    (file-manager-init)
+    (helix.keymaps.keymap (global)
+      (normal (space (e file-explorer-open)
+                     (t file-tree-open))))))
+
+;; Cross-feature coordination runs only after every participant has had an
+;; independent chance to load and register its own behavior.
 (use-feature workflows
-  (:load "cogs/workflows.scm")
+  (:load "features/workflows/workflows.scm")
   (:config (workflows-init)))
-
-(use-feature keybindings
-  (:load "cogs/keybindings.scm")
-  (:config (keybindings-init)))
 
 ;; Loading a command-only feature makes it available to the command palette.
 (use-feature lsp-status
-  (:load "cogs/lsp-status.scm"))
+  (:load "features/lsp-status/lsp-status.scm"))
 
 (use-feature input-source
-  (:load "cogs/input-source/input-source.scm")
+  (:load "features/input-source/input-source.scm")
   (:config (input-source-init)))
 
 (use-feature splash
-  (:load "cogs/splash.scm")
+  (:load "features/splash/splash.scm")
   (:config (splash-smart-show)))
 
 ;; Apply after all user language configuration so existing LSP definitions and
 ;; ordering are preserved; color-swatches is appended as the final server.
 (use-feature color-swatches
-  (:load "cogs/color-swatches/color-swatches.scm")
+  (:load "features/color-swatches/color-swatches.scm")
   (:config (color-swatches-init)))
 
 (use-feature-report-failures! set-warning!)
