@@ -5,6 +5,7 @@
 (require (only-in "helix/misc.scm" set-warning!))
 (require (only-in "use-feature.scm"
                   use-feature
+                  use-feature-initialize!
                   use-feature-report-failures!))
 
 ;; steel/meta bindings must be evaluated in the startup module.
@@ -95,4 +96,5 @@
   (:load "features/color-swatches/color-swatches.scm")
   (:config (color-swatches-init)))
 
+(use-feature-initialize!)
 (use-feature-report-failures! set-warning!)

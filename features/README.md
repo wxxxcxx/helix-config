@@ -17,10 +17,12 @@ called from `init.scm`.
 - `splash/`: blank-start splash component
 - `ui/`: shared color, palette, and rendering primitives
 
-Global entry bindings are user policy: declare them beside the corresponding
-`use-feature` form in `init.scm`. This makes enabling, disabling, and rebinding
-a feature a local edit. Helix merges each feature's global keymap incrementally,
-so a broken feature cannot suppress bindings from healthy ones.
+Global entry bindings are user policy: declare them inside the corresponding
+`use-feature` config form in `init.scm`. Declarations are collected first and
+initialized after all features are known, so feature order is governed by
+explicit dependencies rather than declaration position. Helix merges each
+feature's global keymap incrementally, so a broken feature cannot suppress
+bindings from healthy ones.
 
 Bindings used only while a component is active remain inside that component;
 they are part of its event protocol rather than the user's global configuration.
@@ -28,4 +30,4 @@ they are part of its event protocol rather than the user's global configuration.
 Panel modes depend on the shared `panel/` lifecycle API. Other feature
 directories should depend only on their own files, `ui/`, or external Helix
 modules. Cross-feature placement stays visible in `init.scm` through explicit
-mode registration.
+dependencies and mode registration.

@@ -1,5 +1,6 @@
 (require (only-in "../../use-feature.scm"
                   use-feature
+                  use-feature-initialize!
                   use-feature-failures
                   use-feature-report-failures!
                   use-feature-reset-failures!
@@ -11,28 +12,24 @@
                           ": expected " (to-string expected)
                           ", got " (to-string actual)))))
 
-(use-feature good
-  (:load "tests/fixtures/use-feature/good.scm")
-  (:config
-    (fixture-init)
-    (unless (= (fixture-value) 42)
-      (error "successful feature did not initialize"))))
-
-(assert-equal
-  (with-handler (lambda (_) 'not-visible)
-    (eval '*fixture-private-value*))
-  'not-visible
-  "unprovided feature bindings remain private")
-(assert-equal (use-feature-status 'good) 'ready "successful feature is ready")
-
 (use-feature dependent
   (:depends good)
   (:load "tests/fixtures/use-feature/good.scm")
   (:config
     (unless (= (fixture-value) 42)
       (error "ready dependency was not available"))))
-(assert-equal (use-feature-status 'dependent) 'ready
-              "feature with ready dependency initializes")
+
+(use-feature blocked-failed
+  (:depends bad-runtime)
+  (:load "tests/fixtures/use-feature/good.scm")
+  (:config (error "dependent config must not run")))
+
+(use-feature good
+  (:load "tests/fixtures/use-feature/good.scm")
+  (:config
+    (fixture-init)
+    (unless (= (fixture-value) 42)
+      (error "successful feature did not initialize"))))
 
 (use-feature bad-syntax
   (:load "tests/fixtures/use-feature/bad-syntax.scm")
@@ -46,10 +43,6 @@
   (:depends never-declared)
   ;; This path must never be loaded because dependency checks run first.
   (:load "tests/fixtures/use-feature/missing.scm"))
-(use-feature blocked-failed
-  (:depends bad-runtime)
-  (:load "tests/fixtures/use-feature/good.scm")
-  (:config (error "dependent config must not run")))
 (use-feature after-failure
   (:load "tests/fixtures/use-feature/good.scm")
   (:config
@@ -57,6 +50,21 @@
     (unless (= (fixture-value) 42)
       (error "feature after failures did not initialize"))))
 
+(assert-equal (use-feature-status 'dependent) 'pending
+              "registered feature waits for final initialization")
+(assert-equal (use-feature-status 'good) 'pending
+              "late dependency waits for final initialization")
+
+(use-feature-initialize!)
+
+(assert-equal
+  (with-handler (lambda (_) 'not-visible)
+    (eval '*fixture-private-value*))
+  'not-visible
+  "unprovided feature bindings remain private")
+(assert-equal (use-feature-status 'good) 'ready "successful feature is ready")
+(assert-equal (use-feature-status 'dependent) 'ready
+              "feature with later ready dependency initializes")
 (assert-equal (use-feature-status 'bad-runtime) 'failed
               "config failure marks feature failed")
 (assert-equal (use-feature-status 'blocked-missing) 'skipped
