@@ -1,8 +1,11 @@
 (require "helix/components.scm")
+(require (only-in "helix/editor.scm"
+                  editor-all-documents
+                  editor-document->path))
 (require (only-in "features/ui/color.scm" terminal-color))
 (require (only-in "features/file-manager/core/file-style.scm" file-icon file-color))
 (require (only-in "features/ui/style.scm" make-style))
-(require (only-in "features/ui/palette.scm" major-bg))
+(require (only-in "features/ui/indent-guides.scm" indent-guide-string))
 (require "features/file-manager/core/files.scm")
 (require (only-in "features/file-manager/core/collections.scm" fm-member?))
 (require "features/file-manager/file-tree/git.scm")
@@ -33,19 +36,32 @@
   (define bg (style->bg row-style))
   (if bg (style-bg foreground bg) foreground))
 
+(define (ft-render-file-style-on-row foreground row-style selected? open?)
+  (define row-style-applied (ft-render-style-on-row foreground row-style))
+  (define open-style
+    (if open? (style-with-italics row-style-applied) row-style-applied))
+  (if selected? (style-with-bold open-style) open-style))
+
+(define (ft-render-document-path doc-id)
+  (with-handler (lambda (_) #f) (editor-document->path doc-id)))
+
+(define (ft-render-open-document-paths)
+  (filter (lambda (path) (and path (string? path)))
+          (map ft-render-document-path (editor-all-documents))))
+
 (define (ft-render-indent depth)
-  (if (<= depth 0) "" (string-append "  " (ft-render-indent (- depth 1)))))
+  (if (<= depth 0)
+      ""
+      (string-append indent-guide-string " " (ft-render-indent (- depth 1)))))
 
 (define (ft-render-directory-icon root? expanded?)
   (cond [root? (if expanded? "" "")]
         [expanded? ""]
         [else ""]))
 
-(define (ft-render-row-leading row marked)
+(define (ft-render-row-mark row marked)
   (define path (ft-render-row-path row))
-  (define depth (ft-render-row-depth row))
-  (string-append (if (fm-member? path marked) "* " "  ")
-                 (ft-render-indent depth)))
+  (if (fm-member? path marked) "* " "  "))
 
 (define (ft-render-row-icon row root expanded icon-style)
   (define path (ft-render-row-path row))
@@ -103,10 +119,11 @@
     (define inactive (theme-scope-ref "ui.text.inactive"))
     (define selected (if focused?
                          (theme-scope-ref "ui.menu.selected")
-                         (theme-scope-ref "ui.selection")))
-    (define root-style (style-with-bold (make-style major-bg #f focused?)))
+                         text))
     (define dir-style (theme-scope-ref "ui.text.info"))
+    (define indent-guide (theme-scope-ref "ui.virtual.indent-guide"))
     (define divider (theme-scope-ref "ui.window"))
+    (define open-document-paths (ft-render-open-document-paths))
     (buffer/clear-with frame (area x y width height) bg)
     (when has-divider?
       (do [(row 0 (+ row 1))] [(>= row height)]
@@ -117,15 +134,20 @@
       (define selected? (= index selected-index))
       (define entry (and (< index (length rows)) (list-ref rows index)))
       (define path (and entry (ft-render-row-path entry)))
-      (define root? (and path (string=? path root)))
       (define ignored? (and path (ft-git-ignored? git-ignored path)))
+      (define open? (and path
+                         (not (is-dir? path))
+                         (fm-member? path open-document-paths)))
       (define style (if selected? selected text))
       (frame-set-string! frame content-x row-y (make-string content-w #\space) style)
       (when entry
         (define icon-style-option (config-ref 'icon-style))
-        (define leading (ft-render-row-leading entry marked))
+        (define mark (ft-render-row-mark entry marked))
+        (define indent (ft-render-indent (ft-render-row-depth entry)))
+        (define leading (string-append mark indent))
         (define icon (ft-render-row-icon entry root expanded icon-style-option))
         (define prefix (string-append leading icon " "))
+        (define mark-w (fm-display-width mark))
         (define leading-w (fm-display-width leading))
         (define prefix-w (fm-display-width prefix))
         (define git-kinds (ft-git-path-kinds git-status root path))
@@ -135,39 +157,46 @@
         (define right-padding (if (> content-w 1) 1 0))
         (define label-w (max 0 (- content-w prefix-w right-padding git-w
                                   (if git-kind 1 0))))
-        (define leading-style
+        (define mark-style
           (ft-render-style-on-row (if ignored? inactive text) style))
+        (define indent-style
+          (ft-render-style-on-row indent-guide style))
         (define icon-style
-          (ft-render-style-on-row
-            (cond [root? root-style]
-                  [ignored? inactive]
+          (ft-render-file-style-on-row
+            (cond [ignored? inactive]
                   [(is-dir? path) dir-style]
                   [(equal? icon-style-option 'full)
                    (style-fg text
                              (terminal-color
                                (file-color (fm-entry-label path))))]
                   [else text])
-            style))
+            style
+            selected?
+            open?))
         (define name-style
-          (ft-render-style-on-row
-            (cond [root? root-style]
-                  [ignored? inactive]
+          (ft-render-file-style-on-row
+            (cond [ignored? inactive]
                   [git-kind (ft-render-git-style git-kind)]
-                  [selected? selected]
+                  [(and selected? focused?) selected]
                   [(is-dir? path) dir-style]
                   [else text])
-            style))
-        (frame-set-string! frame content-x row-y leading leading-style)
+            style
+            selected?
+            open?))
+        (frame-set-string! frame content-x row-y mark mark-style)
+        (frame-set-string! frame (+ content-x mark-w) row-y indent indent-style)
         (frame-set-string! frame (+ content-x leading-w) row-y icon icon-style)
         (frame-set-string! frame (+ content-x prefix-w) row-y
                            (fm-fit-text (fm-entry-label path) label-w) name-style)
         (when git-kind
           (frame-set-string! frame (+ content-x (- content-w right-padding git-w))
                              row-y git-icon
-                             (ft-render-style-on-row
+                             (ft-render-file-style-on-row
                                (if ignored?
                                    inactive
                                    (ft-render-git-style git-kind))
-                               style)))))
+                               style
+                               selected?
+                               open?)))))
     (ft-render-clipboard-status content-x status-y content-w
                                 clipboard clipboard-mode frame)))
