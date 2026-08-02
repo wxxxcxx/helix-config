@@ -20,7 +20,7 @@
          file-tree-panel-mode
          file-tree-toggle)
 
-;; Keep the public entry module free of startup effects so use-feature can
+;; Keep the public entry module free of startup effects so the feature loader can
 ;; isolate load failures before any editor state is changed.
 (define (file-manager-init)
   (file-tree-init))

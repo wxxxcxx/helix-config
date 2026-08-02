@@ -1,9 +1,12 @@
 ;; Base editor configuration and theme selection.
 
 (require "helix/configuration.scm")
-(require "helix/components.scm")
 (require (only-in "helix/commands.scm" theme))
-(require "features/ui/color.scm")
+(require (only-in "features/ui/color.scm"
+                  color-terminal?
+                  indexed-terminal?))
+(require (only-in "features/editor/external-files.scm"
+                  editor-external-files-init))
 (require (only-in "features/ui/indent-guides.scm" indent-guide-character))
 (require (only-in "themes/woz.scm" register-woz-theme))
 (require (only-in "themes/woz-indexed.scm" register-woz-indexed-theme))
@@ -40,6 +43,7 @@
   (register-woz-ansi-theme)
   (when (color-terminal?) (true-color #t))
   (editor-enable-steel-lsp!)
+  (editor-external-files-init)
   (line-number 'relative)
   (indent-guides (ig-render #t) (ig-character indent-guide-character))
   (bufferline "always")

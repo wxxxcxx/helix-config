@@ -3,11 +3,11 @@
 (require (only-in "helix/configuration.scm" rainbow-brackets))
 (require (prefix-in helix.keymaps. "helix/keymaps.scm"))
 (require (only-in "helix/misc.scm" set-warning!))
-(require (only-in "use-feature.scm"
-                  use-feature
-                  use-feature-initialize!
-                  use-feature-initialize-elapsed-milliseconds
-                  use-feature-report-failures!))
+(require (only-in "feature.scm"
+                  feature
+                  feature-initialize!
+                  feature-initialize-elapsed-milliseconds
+                  feature-report-failures!))
 
 ;; steel/meta bindings must be evaluated in the startup module.
 (when (string=? (or (with-handler (lambda (_) #f) (env-var "TERM")) "") "")
@@ -17,15 +17,15 @@
 
 (rainbow-brackets #t)
 
-(use-feature editor
+(feature editor
   (:load "features/editor/editor.scm")
   (:config (editor-init)))
 
-(use-feature statusline
+(feature statusline
   (:load "features/statusline/statusline.scm")
   (:config (statusline-init)))
 
-(use-feature panel
+(feature panel
   (:load "features/panel/panel.scm")
   (:config
     (panel-init)
@@ -35,7 +35,7 @@
       (normal ("C-ret" panel-toggle-fullscreen!))
       (insert ("C-ret" panel-toggle-fullscreen!)))))
 
-(use-feature terminal
+(feature terminal
   (:depends panel)
   (:load "features/terminal/terminal.scm")
   (:config
@@ -53,7 +53,7 @@
               ("C-pageup" terminal-switch-previous)
               ("C-pagedown" terminal-switch-next)))))
 
-(use-feature ivy
+(feature ivy
   (:load "features/ivy/commands.scm")
   (:config
     (ivy-init)
@@ -66,7 +66,7 @@
                      (T ivy-theme)
                      ("?" ivy-commands))))))
 
-(use-feature file-manager
+(feature file-manager
   (:depends panel)
   (:load "features/file-manager/file-manager.scm")
   (:config
@@ -79,25 +79,25 @@
                      (t file-tree-open))))))
 
 ;; Loading a command-only feature makes it available to the command palette.
-(use-feature lsp-status
+(feature lsp-status
   (:load "features/lsp-status/lsp-status.scm"))
 
-(use-feature input-source
+(feature input-source
   (:depends panel)
   (:load "features/input-source/input-source.scm")
   (:config (input-source-init)))
 
 ;; Apply after all user language configuration so existing LSP definitions and
 ;; ordering are preserved; color-swatches is appended as the final server.
-(use-feature color-swatches
+(feature color-swatches
   (:load "features/color-swatches/color-swatches.scm")
   (:config (color-swatches-init)))
 
 ;; Initialize Splash last so its timing includes every other feature.
-(use-feature splash
+(feature splash
   (:load "features/splash/splash.scm")
   (:config
-    (splash-smart-show (use-feature-initialize-elapsed-milliseconds))))
+    (splash-smart-show (feature-initialize-elapsed-milliseconds))))
 
-(use-feature-initialize!)
-(use-feature-report-failures! set-warning!)
+(feature-initialize!)
+(feature-report-failures! set-warning!)

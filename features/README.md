@@ -18,7 +18,7 @@ called from `init.scm`.
 - `ui/`: shared color, palette, and rendering primitives
 
 Global entry bindings are user policy: declare them inside the corresponding
-`use-feature` config form in `init.scm`. Declarations are collected first and
+`feature` config form in `init.scm`. Declarations are collected first and
 initialized after all features are known, so feature order is governed by
 explicit dependencies rather than declaration position. Helix merges each
 feature's global keymap incrementally, so a broken feature cannot suppress

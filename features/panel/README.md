@@ -56,7 +56,7 @@ binding so focused panel components can delegate unhandled modified keys to
 Panel before the event reaches Helix's global keymap:
 
 ```scheme
-(use-feature panel
+(feature panel
   (:load "features/panel/panel.scm")
   (:config
     (panel-init)

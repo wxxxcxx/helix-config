@@ -15,6 +15,11 @@
 (require "features/file-manager/core/which-key.scm")
 (require "features/file-manager/file-tree/git.scm")
 (require "features/file-manager/file-tree/config.scm")
+(require (only-in "features/file-manager/file-tree/model.scm"
+                  ft-model-build-rows
+                  ft-model-remove
+                  ft-model-row-index
+                  ft-model-row-path))
 (require (only-in "features/file-manager/file-tree/defaults.scm"
                   file-tree-action-specifications))
 (require "features/file-manager/file-tree/render.scm")
@@ -55,37 +60,15 @@
 (define *ft-root-forward* '())
 (define *ft-root-views* (hash))
 
-(define (ft-remove value values)
-  (cond [(null? values) '()]
-        [(equal? value (car values)) (cdr values)]
-        [else (cons (car values) (ft-remove value (cdr values)))]))
-
-(define (ft-append left right)
-  (if (null? left) right (cons (car left) (ft-append (cdr left) right))))
-
-(define (ft-flatten lists)
-  (if (null? lists) '() (ft-append (car lists) (ft-flatten (cdr lists)))))
-
 (define (ft-children path)
   (fm-sort-entries (fm-read-dir-names path *ft-show-hidden*) 'name #f))
 
-(define (ft-node-rows path depth)
-  (define row (list depth path))
-  (if (and (is-dir? path) (fm-member? path *ft-expanded*))
-      (cons row
-            (ft-flatten
-              (map (lambda (child) (ft-node-rows child (+ depth 1)))
-                   (ft-children path))))
-      (list row)))
-
 (define (ft-rebuild!)
-  (set! *ft-rows* (if (string=? *ft-root* "") '() (ft-node-rows *ft-root* 0)))
+  (set! *ft-rows*
+        (ft-model-build-rows *ft-root* *ft-expanded* is-dir? ft-children))
   (set! *ft-selected* (min *ft-selected* (max 0 (- (length *ft-rows*) 1))))
   (set! *ft-scroll*
         (min *ft-scroll* (max 0 (- (length *ft-rows*) *ft-content-height*)))))
-
-(define (ft-row-path row) (list-ref row 1))
-(define (ft-row-depth row) (car row))
 
 (define (ft-selected-row)
   (if (< *ft-selected* (length *ft-rows*))
@@ -94,13 +77,7 @@
 
 (define (ft-selected-path)
   (define row (ft-selected-row))
-  (and row (ft-row-path row)))
-
-(define (ft-row-index path)
-  (let loop ([rows *ft-rows*] [index 0])
-    (cond [(null? rows) #f]
-          [(string=? path (ft-row-path (car rows))) index]
-          [else (loop (cdr rows) (+ index 1))])))
+  (and row (ft-model-row-path row)))
 
 (define (ft-scroll-to-visible!)
   (define visible (max 1 *ft-content-height*))
@@ -111,7 +88,7 @@
   (set! *ft-scroll* (min max-scroll (max 0 *ft-scroll*))))
 
 (define (ft-select-path! path)
-  (define index (ft-row-index path))
+  (define index (ft-model-row-index *ft-rows* path))
   (when index
     (set! *ft-selected* index)
     (ft-scroll-to-visible!)))
@@ -169,7 +146,7 @@
   (set! *ft-root* root)
   (set! *ft-session* (fm-session-clear-marks *ft-session*))
   (set! selected (ft-restore-root-view! root))
-  (ft-refresh-git!)
+  (ft-sync-git!)
   (ft-rebuild!)
   (cond [(and selected (ft-path-under-root? selected) (path-exists? selected))
          (ft-expand-ancestors! selected)
@@ -228,7 +205,7 @@
   (fm-prompt! 'input "Root: " *ft-root*
               (lambda (path) (ft-set-root! path))))
 
-(define (ft-refresh-git!)
+(define (ft-sync-git!)
   (set! *ft-git-status* (ft-git-read *ft-root*))
   (set! *ft-git-ignored* (ft-git-read-ignored *ft-root*)))
 
@@ -252,12 +229,15 @@
 (define (ft-clear-yank!)
   (ft-set-session! (fm-session-clear-clipboard *ft-session*)))
 
-(define (ft-reload!)
+(define (ft-sync-filesystem!)
   (define selected (ft-selected-path))
   (set! *ft-session* (fm-session-prune-marks *ft-session* path-exists?))
-  (ft-refresh-git!)
   (ft-rebuild!)
   (when selected (ft-select-path! selected)))
+
+(define (ft-sync!)
+  (ft-sync-git!)
+  (ft-sync-filesystem!))
 
 (define (ft-do-mark)
   (define path (ft-selected-path))
@@ -307,17 +287,17 @@
   event-result/consume)
 
 (define (ft-paste! force?)
-  (fm-operation-paste! *ft-session* ft-set-session! (ft-operation-directory) force? ft-reload!)
+  (fm-operation-paste! *ft-session* ft-set-session! (ft-operation-directory) force? ft-sync!)
   event-result/consume)
 
 (define (ft-after-rename! path target)
   (ft-set-session! (fm-session-replace-path *ft-session* path target)))
 
 (define (ft-rename-paths! paths)
-  (fm-operation-rename-paths! paths fm-entry-label ft-after-rename! ft-reload!))
+  (fm-operation-rename-paths! paths fm-entry-label ft-after-rename! ft-sync!))
 
 (define (ft-create-kind directory?)
-  (fm-operation-create-kind! (ft-operation-directory) directory? ft-reload!)
+  (fm-operation-create-kind! (ft-operation-directory) directory? ft-sync!)
   event-result/consume)
 
 (define (ft-trash)
@@ -326,7 +306,7 @@
     paths
     (lambda ()
       (ft-set-session! (fm-session-complete-paths *ft-session* paths))
-      (ft-reload!)))
+      (ft-sync!)))
   event-result/consume)
 
 (define (ft-delete)
@@ -335,7 +315,7 @@
     paths
     (lambda ()
       (ft-set-session! (fm-session-complete-paths *ft-session* paths))
-      (ft-reload!)))
+      (ft-sync!)))
   event-result/consume)
 
 (define (ft-state-ref key)
@@ -381,7 +361,7 @@
   (when (and path (is-dir? path))
     (set! *ft-expanded*
           (if (fm-member? path *ft-expanded*)
-              (ft-remove path *ft-expanded*)
+              (ft-model-remove path *ft-expanded*)
               (fm-add-unique path *ft-expanded*)))
     (ft-rebuild!)))
 
@@ -410,7 +390,7 @@
 
 (define (ft-parent)
   (define row (ft-selected-row))
-  (define path (and row (ft-row-path row)))
+  (define path (and row (ft-model-row-path row)))
   (cond [(and path (is-dir? path) (fm-member? path *ft-expanded*))
          (ft-toggle-selected!)]
         [path (ft-select-path! (fm-parent-dir path))])
@@ -420,7 +400,7 @@
   (define path (ft-selected-path))
   (when (and path (not (string=? path *ft-root*)))
     (define parent (fm-parent-dir path))
-    (set! *ft-expanded* (ft-remove parent *ft-expanded*))
+    (set! *ft-expanded* (ft-model-remove parent *ft-expanded*))
     (ft-rebuild!)
     (ft-select-path! parent))
   event-result/consume)
@@ -434,7 +414,7 @@
     (ft-follow-path! (ft-current-file))))
 
 (define (ft-refresh)
-  (ft-refresh-git!)
+  (ft-sync-git!)
   (ft-rebuild!)
   event-result/consume)
 
@@ -746,7 +726,9 @@
   (panel-close! 'file-tree))
 
 (define (file-tree-init)
+  (register-hook 'terminal-focus-gained
+                 (lambda () (when *ft-active* (ft-sync-filesystem!))))
   (register-hook 'document-focus-lost
                  (lambda (_) (ft-follow-current-file!)))
   (register-hook 'document-saved
-                 (lambda (_) (when *ft-active* (ft-refresh-git!) (ft-rebuild!)))))
+                 (lambda (_) (when *ft-active* (ft-sync-git!) (ft-rebuild!)))))

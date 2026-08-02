@@ -1,6 +1,5 @@
 (require "helix/components.scm")
 (require "helix/misc.scm")
-(require "helix/editor.scm")
 (require (only-in "helix/static.scm" cx->current-file))
 (require (prefix-in helix. "helix/commands.scm"))
 (require "features/file-manager/file-explorer/config.scm")
@@ -132,6 +131,10 @@
 
 (define (fe-handle-event state event)
   (cond
+    [(focus-lost-event? event) event-result/ignore]
+    [(focus-gained-event? event)
+     (fe-reload!)
+     event-result/ignore]
     [(and (fe-ref 'help-visible?) (key-event-escape? event))
      (fe-set! 'help-visible? #f)
      event-result/consume]
