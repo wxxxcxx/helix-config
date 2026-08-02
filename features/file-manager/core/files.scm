@@ -1,5 +1,11 @@
 (require "helix/misc.scm")
+(require (only-in "../../core/list.scm"
+                  list-drop
+                  list-take))
 (require (only-in "features/file-manager/core/collections.scm" fm-member?))
+(require (only-in "features/ui/text.scm"
+                  ui-display-width
+                  ui-fit-text))
 
 (provide fm-take fm-drop
          fm-base-name fm-entry-label fm-path-label fm-parent-dir fm-read-dir-names
@@ -12,10 +18,10 @@
          BORDER-LT BORDER-RT BORDER-TC border-h)
 
 (define (fm-take lst n)
-  (if (or (null? lst) (<= n 0)) '() (cons (car lst) (fm-take (cdr lst) (- n 1)))))
+  (list-take lst n))
 
 (define (fm-drop lst n)
-  (if (or (null? lst) (<= n 0)) lst (fm-drop (cdr lst) (- n 1))))
+  (list-drop lst n))
 
 (define (fm-base-name path) (file-name path))
 (define (fm-parent-dir path) (parent-name path))
@@ -226,52 +232,11 @@
        lines)]
     [else (list (string-append "  [" (fm-format-size path) "]"))]))
 
-(define (fm-char-width ch)
-  (define code (char->integer ch))
-  (cond
-    ;; Combining marks, variation selectors, and joiners do not occupy a cell.
-    [(or (and (>= code #x0300) (<= code #x036f))
-         (and (>= code #x1ab0) (<= code #x1aff))
-         (and (>= code #x1dc0) (<= code #x1dff))
-         (and (>= code #x200b) (<= code #x200d))
-         (and (>= code #x20d0) (<= code #x20ff))
-         (and (>= code #xfe00) (<= code #xfe0f))
-         (and (>= code #x1f3fb) (<= code #x1f3ff))
-         (and (>= code #xfe20) (<= code #xfe2f)))
-     0]
-    ;; East Asian wide/full-width characters and common terminal emoji ranges.
-    [(or (and (>= code #x1100) (<= code #x115f))
-         (= code #x2329)
-         (= code #x232a)
-         (and (>= code #x2e80) (<= code #xa4cf))
-         (and (>= code #xac00) (<= code #xd7a3))
-         (and (>= code #xf900) (<= code #xfaff))
-         (and (>= code #xfe10) (<= code #xfe19))
-         (and (>= code #xfe30) (<= code #xfe6f))
-         (and (>= code #xff00) (<= code #xff60))
-         (and (>= code #xffe0) (<= code #xffe6))
-         (and (>= code #x1f300) (<= code #x1faff))
-         (and (>= code #x20000) (<= code #x3fffd)))
-     2]
-    [else 1]))
-
 (define (fm-display-width text)
-  (let loop ([index 0] [width 0])
-    (if (>= index (string-length text))
-        width
-        (loop (+ index 1) (+ width (fm-char-width (string-ref text index)))))))
+  (ui-display-width text))
 
 (define (fm-fit-text text width)
-  (cond [(<= width 0) ""]
-        [(<= (fm-display-width text) width) text]
-        [(= width 1) "…"]
-        [else
-         (let loop ([index 0] [used 0])
-           (if (or (>= index (string-length text))
-                   (> (+ used (fm-char-width (string-ref text index))) (- width 1)))
-               (string-append (substring text 0 index) "…")
-               (loop (+ index 1)
-                     (+ used (fm-char-width (string-ref text index))))))]))
+  (ui-fit-text text width))
 
 (define (fm-calc-layout w h width-pct height-pct)
   (let* ([max-w (max 1 w)]

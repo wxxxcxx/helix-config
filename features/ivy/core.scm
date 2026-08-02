@@ -1,3 +1,7 @@
+(require (only-in "../core/list.scm"
+                  list-drop
+                  list-take))
+
 (provide IvyCandidate
          IvyCandidate?
          IvyCandidate-label
@@ -16,14 +20,10 @@
 (struct IvyMatch (candidate score positions))
 
 (define (ivy-take values count)
-  (if (or (null? values) (<= count 0))
-      '()
-      (cons (car values) (ivy-take (cdr values) (- count 1)))))
+  (list-take values count))
 
 (define (ivy-drop values count)
-  (if (or (null? values) (<= count 0))
-      values
-      (ivy-drop (cdr values) (- count 1))))
+  (list-drop values count))
 
 (define (ivy-uppercase? ch)
   (and (char=? ch (char-upcase ch))

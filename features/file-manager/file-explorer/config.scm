@@ -1,5 +1,7 @@
 (require "features/file-manager/core/keymap.scm")
 (require (only-in "features/file-manager/core/file-style.scm" file-icon-style?))
+(require (only-in "features/file-manager/file-explorer/defaults.scm"
+                  file-explorer-default-keybindings))
 
 (provide file-explorer-configure! fe-config-ref)
 
@@ -8,66 +10,7 @@
         'col-ratios '(20 40 40)
         'show-hidden #f
         'icon-style 'full
-        'keybindings
-        (hash
-          "k" 'up
-          "up" 'up
-          "j" 'down
-          "down" 'down
-          "h" 'parent
-          "u" 'parent
-          "l" 'open
-          "enter" 'open
-          "space" 'mark
-          "\"" 'copy-register
-          "b" 'bookmarks
-          "m" 'move
-          "Y" 'unyank
-          "X" 'unyank
-          "d" 'trash
-          "D" 'delete
-          "R" 'rename
-          "q" 'quit
-          "." 'toggle-hidden
-          "f" 'filter
-          "/" 'find
-          "n" 'find-next
-          "N" 'find-previous
-          "s" 'sort
-          "r" 'refresh
-          "?" 'help
-          "o" (list
-                (hash
-                  "o" 'open-normal
-                  "v" 'open-vsplit
-                  "h" 'open-hsplit
-                  "c" 'open-close)
-                "Open")
-          "y" (list
-                (hash
-                  "y" 'copy
-                  "a" 'copy-absolute
-                  "r" 'copy-relative
-                  "n" 'copy-filename)
-                "Yank")
-          "p" (list
-                (hash
-                  "p" 'paste
-                  "!" 'paste-force)
-                "Paste")
-          "c" (list
-                (hash
-                  "f" 'create-file
-                  "d" 'create-dir)
-                "Create")
-          "t" (list
-                (hash
-                  "h" 'toggle-hidden)
-                "Toggle")
-          "g" (list
-                (hash
-                  "r" 'refresh)
-                "Goto / Action"))))
+        'keybindings file-explorer-default-keybindings))
 
 (define (file-explorer-configure!
          #:key [keybindings #f]

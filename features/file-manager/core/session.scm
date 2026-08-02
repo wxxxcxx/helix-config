@@ -1,4 +1,4 @@
-(require (only-in "features/file-manager/core/collections.scm" fm-member?))
+(require (only-in "collections.scm" fm-member?))
 
 (provide fm-session-empty
          fm-session-marked fm-session-clipboard fm-session-mode fm-session-register

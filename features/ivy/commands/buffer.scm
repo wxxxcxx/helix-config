@@ -10,6 +10,8 @@
 (require (only-in "features/file-manager/core/files.scm"
                   fm-entry-label
                   fm-parent-dir))
+(require (only-in "../../core/collections.scm"
+                  core-member?))
 (require (only-in "features/ivy/core.scm"
                   IvyCandidate
                   IvyCandidate-value))
@@ -21,11 +23,6 @@
 (define *ivy-buffer-history* '())
 (define *ivy-buffer-initialized?* #f)
 
-(define (ivy-buffer-member? values target)
-  (cond [(null? values) #f]
-        [(equal? (car values) target) #t]
-        [else (ivy-buffer-member? (cdr values) target)]))
-
 (define (ivy-buffer-remember! doc-id)
   (set! *ivy-buffer-history*
         (cons doc-id
@@ -35,7 +32,7 @@
 (define (ivy-buffer-live-history documents current)
   (filter (lambda (doc-id)
             (and (not (equal? doc-id current))
-                 (ivy-buffer-member? documents doc-id)))
+                 (core-member? doc-id documents)))
           *ivy-buffer-history*))
 
 (define (ivy-buffer-order documents current)
@@ -43,10 +40,10 @@
   (define remaining
     (filter (lambda (doc-id)
               (and (not (equal? doc-id current))
-                   (not (ivy-buffer-member? recent doc-id))))
+                   (not (core-member? doc-id recent))))
             documents))
   (append recent remaining
-          (if (ivy-buffer-member? documents current) (list current) '())))
+          (if (core-member? current documents) (list current) '())))
 
 (define (ivy-buffer-status current? dirty?)
   (cond [(and current? dirty?) "current, modified"]

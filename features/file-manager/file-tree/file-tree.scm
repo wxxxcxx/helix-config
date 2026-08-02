@@ -7,14 +7,16 @@
 (require (only-in "features/file-manager/core/collections.scm"
                   fm-add-unique
                   fm-member?))
-(require "features/file-manager/core/actions.scm")
 (require "features/file-manager/core/session.scm")
 (require "features/file-manager/core/modal.scm")
+(require "features/file-manager/core/operations.scm")
 (require "features/file-manager/core/action-registry.scm")
 (require "features/file-manager/core/keymap.scm")
 (require "features/file-manager/core/which-key.scm")
 (require "features/file-manager/file-tree/git.scm")
 (require "features/file-manager/file-tree/config.scm")
+(require (only-in "features/file-manager/file-tree/defaults.scm"
+                  file-tree-action-specifications))
 (require "features/file-manager/file-tree/render.scm")
 (require (only-in "features/panel/panel.scm"
                   panel-close!
@@ -244,10 +246,11 @@
   (define current (ft-selected-path))
   (if (and current (is-dir? current)) current (and current (fm-parent-dir current))))
 
-(define (ft-operation-count paths) (int->string (length paths)))
+(define (ft-set-session! session)
+  (set! *ft-session* session))
 
 (define (ft-clear-yank!)
-  (set! *ft-session* (fm-session-clear-clipboard *ft-session*)))
+  (ft-set-session! (fm-session-clear-clipboard *ft-session*)))
 
 (define (ft-reload!)
   (define selected (ft-selected-path))
@@ -265,24 +268,18 @@
   event-result/consume)
 
 (define (ft-stage-operation! mode)
-  (define paths (ft-operation-targets))
-  (when (not (null? paths))
-    (set! *ft-session* (fm-session-stage *ft-session* mode paths)))
+  (fm-operation-stage! *ft-session* (ft-operation-targets) ft-set-session! mode)
   event-result/consume)
 
 (define (ft-relative-path path)
-  (define prefix (string-append *ft-workspace-root* (path-separator)))
-  (cond [(string=? path *ft-workspace-root*) "."]
-        [(starts-with? path prefix) (substring path (string-length prefix) (string-length path))]
-        [else path]))
+  (fm-relative-path *ft-workspace-root* path))
 
 (define (ft-copy-selected! value label)
-  (with-handler
-    (lambda (err) (set-warning! (string-append "copy " label " failed: " (error-object-message err))))
-    (begin
-      (set-register! (fm-session-register *ft-session*) (list value))
-      (set-warning! (string-append "copied " label ": " value))))
-  (set! *ft-session* (fm-session-reset-register *ft-session*))
+  (fm-operation-copy-value! *ft-session*
+                            ft-set-session!
+                            (ft-selected-path)
+                            value
+                            label)
   event-result/consume)
 
 (define (ft-copy-value! kind)
@@ -299,89 +296,46 @@
   event-result/consume)
 
 (define (ft-select-copy-register)
-  (set! *ft-pending-action* 'copy-register)
-  (set-warning! "register: enter a register name")
+  (fm-operation-select-copy-register! (lambda (value) (set! *ft-pending-action* value)))
   event-result/consume)
 
 (define (ft-handle-copy-register event)
-  (define register (key-event-char event))
-  (set! *ft-pending-action* #f)
-  (if (char? register)
-      (begin
-        (set! *ft-session* (fm-session-with-register *ft-session* register))
-        (set-warning! (string-append "register " (string register) ": ya=absolute yr=relative yn=filename")))
-      (set-warning! "register: enter a register name"))
+  (fm-operation-handle-copy-register! *ft-session*
+                                      ft-set-session!
+                                      (lambda (value) (set! *ft-pending-action* value))
+                                      event)
   event-result/consume)
 
 (define (ft-paste! force?)
-  (define destination (ft-operation-directory))
-  (when (and destination (fm-session-mode *ft-session*)
-             (not (null? (fm-session-clipboard *ft-session*))))
-    (with-handler
-      (lambda (err) (set-warning! (string-append "paste failed: " (error-object-message err))))
-      (begin
-        (fm-paste! (fm-session-mode *ft-session*)
-                   (fm-session-clipboard *ft-session*) destination force?)
-        (when (equal? (fm-session-mode *ft-session*) 'move) (ft-clear-yank!))
-        (ft-reload!))))
+  (fm-operation-paste! *ft-session* ft-set-session! (ft-operation-directory) force? ft-reload!)
   event-result/consume)
 
+(define (ft-after-rename! path target)
+  (ft-set-session! (fm-session-replace-path *ft-session* path target)))
+
 (define (ft-rename-paths! paths)
-  (when (not (null? paths))
-    (define path (car paths))
-    (define old-name (fm-entry-label path))
-    (fm-prompt! 'input "Rename: " old-name
-                (lambda (new-name)
-                  (when (and (not (string=? new-name old-name)) (fm-valid-name? new-name))
-                    (with-handler
-                      (lambda (err) (set-warning! (string-append "rename failed: " (error-object-message err))))
-                      (let ([target (fm-rename! path new-name)])
-                        (set! *ft-session*
-                              (fm-session-replace-path *ft-session* path target))
-                        (ft-reload!))))
-                  (ft-rename-paths! (cdr paths))))))
+  (fm-operation-rename-paths! paths fm-entry-label ft-after-rename! ft-reload!))
 
 (define (ft-create-kind directory?)
-  (define directory (ft-operation-directory))
-  (when directory
-    (fm-prompt! 'input (if directory? "New directory: " "New file: ") ""
-                (lambda (name)
-                  (when (> (string-length name) 0)
-                    (with-handler
-                      (lambda (err) (set-warning! (string-append "create failed: " (error-object-message err))))
-                      (fm-create! directory
-                                  (if (and directory? (not (ends-with? name (path-separator))))
-                                      (string-append name (path-separator))
-                                      name))
-                      (ft-reload!))))))
+  (fm-operation-create-kind! (ft-operation-directory) directory? ft-reload!)
   event-result/consume)
 
 (define (ft-trash)
   (define paths (ft-operation-targets))
-  (when (not (null? paths))
-    (fm-prompt! 'confirm (string-append "Move " (ft-operation-count paths) " item(s) to Trash? (y/N) ") ""
-                (lambda (confirmed?)
-                  (when confirmed?
-                    (with-handler
-                      (lambda (err) (set-warning! (string-append "trash failed: " (error-object-message err))))
-                      (for-each fm-trash! paths)
-                      (set! *ft-session*
-                            (fm-session-complete-paths *ft-session* paths))
-                      (ft-reload!))))))
+  (fm-operation-confirm-trash!
+    paths
+    (lambda ()
+      (ft-set-session! (fm-session-complete-paths *ft-session* paths))
+      (ft-reload!)))
   event-result/consume)
 
 (define (ft-delete)
   (define paths (ft-operation-targets))
-  (when (not (null? paths))
-    (fm-prompt! 'confirm (string-append "Permanently delete " (ft-operation-count paths) " item(s)? (y/N) ") ""
-                (lambda (confirmed?)
-                  (when confirmed?
-                    (with-handler
-                      (lambda (err) (set-warning! (string-append "delete failed: " (error-object-message err))))
-                      (for-each fm-delete! paths)
-                      (set! *ft-session*
-                            (fm-session-complete-paths *ft-session* paths))
-                      (ft-reload!))))))
+  (fm-operation-confirm-delete!
+    paths
+    (lambda ()
+      (ft-set-session! (fm-session-complete-paths *ft-session* paths))
+      (ft-reload!)))
   event-result/consume)
 
 (define (ft-state-ref key)
@@ -529,45 +483,49 @@
 (define (ft-action-root-forward) (ft-root-forward!) event-result/consume)
 (define (ft-action-root-prompt) (ft-prompt-root!) event-result/consume)
 
+(define (ft-action-handler name)
+  (cond [(equal? name 'quit) ft-action-quit]
+        [(equal? name 'down) ft-action-down]
+        [(equal? name 'up) ft-action-up]
+        [(equal? name 'open) ft-open-selected]
+        [(equal? name 'open-normal) ft-open-selected-normal]
+        [(equal? name 'open-vsplit) ft-open-selected-vsplit]
+        [(equal? name 'open-hsplit) ft-open-selected-hsplit]
+        [(equal? name 'open-close) ft-open-selected-close]
+        [(equal? name 'collapse) ft-parent]
+        [(equal? name 'collapse-parent) ft-collapse-parent]
+        [(equal? name 'mark) ft-do-mark]
+        [(equal? name 'copy) ft-action-copy]
+        [(equal? name 'copy-absolute) ft-action-copy-absolute]
+        [(equal? name 'copy-relative) ft-action-copy-relative]
+        [(equal? name 'copy-filename) ft-action-copy-filename]
+        [(equal? name 'copy-register) ft-select-copy-register]
+        [(equal? name 'move) ft-action-move]
+        [(equal? name 'paste) ft-action-paste]
+        [(equal? name 'paste-force) ft-action-paste-force]
+        [(equal? name 'unyank) ft-action-unyank]
+        [(equal? name 'trash) ft-trash]
+        [(equal? name 'delete) ft-delete]
+        [(equal? name 'rename) ft-action-rename]
+        [(equal? name 'create-file) ft-action-create-file]
+        [(equal? name 'create-dir) ft-action-create-dir]
+        [(equal? name 'toggle-hidden) ft-toggle-hidden]
+        [(equal? name 'follow) ft-follow-current]
+        [(equal? name 'refresh) ft-refresh]
+        [(equal? name 'root-selected) ft-action-root-selected]
+        [(equal? name 'root-parent) ft-action-root-parent]
+        [(equal? name 'root-workspace) ft-action-root-workspace]
+        [(equal? name 'root-file) ft-action-root-file]
+        [(equal? name 'root-back) ft-action-root-back]
+        [(equal? name 'root-forward) ft-action-root-forward]
+        [(equal? name 'root-prompt) ft-action-root-prompt]
+        [(equal? name 'help) ft-show-help]
+        [else (error! (string-append "file-tree: missing action handler: "
+                                     (symbol->string name)))]))
+
 (define *ft-actions*
   (fm-make-action-registry
-    (list
-      (list 'quit ft-action-quit)
-      (list 'down ft-action-down "Next entry")
-      (list 'up ft-action-up "Previous entry")
-      (list 'open ft-open-selected "Open selected entry")
-      (list 'open-normal ft-open-selected-normal "Open")
-      (list 'open-vsplit ft-open-selected-vsplit "Open in vertical split")
-      (list 'open-hsplit ft-open-selected-hsplit "Open in horizontal split")
-      (list 'open-close ft-open-selected-close "Open and close tree")
-      (list 'collapse ft-parent "Collapse or select parent")
-      (list 'collapse-parent ft-collapse-parent "Collapse parent directory")
-      (list 'mark ft-do-mark "Mark entry")
-      (list 'copy ft-action-copy "Stage filesystem copy")
-      (list 'copy-absolute ft-action-copy-absolute "Copy absolute path")
-      (list 'copy-relative ft-action-copy-relative "Copy relative path")
-      (list 'copy-filename ft-action-copy-filename "Copy filename")
-      (list 'copy-register ft-select-copy-register "Select copy register")
-      (list 'move ft-action-move "Stage filesystem move")
-      (list 'paste ft-action-paste "Paste")
-      (list 'paste-force ft-action-paste-force "Paste and overwrite")
-      (list 'unyank ft-action-unyank "Clear staged operation")
-      (list 'trash ft-trash "Move to trash")
-      (list 'delete ft-delete "Delete permanently")
-      (list 'rename ft-action-rename "Rename")
-      (list 'create-file ft-action-create-file "Create file")
-      (list 'create-dir ft-action-create-dir "Create directory")
-      (list 'toggle-hidden ft-toggle-hidden "Toggle hidden files")
-      (list 'follow ft-follow-current "Follow current file")
-      (list 'refresh ft-refresh "Refresh")
-      (list 'root-selected ft-action-root-selected "Selected directory as root")
-      (list 'root-parent ft-action-root-parent "Parent directory as root")
-      (list 'root-workspace ft-action-root-workspace "Workspace root")
-      (list 'root-file ft-action-root-file "Current file directory")
-      (list 'root-back ft-action-root-back "Previous root")
-      (list 'root-forward ft-action-root-forward "Next root")
-      (list 'root-prompt ft-action-root-prompt "Enter root path")
-      (list 'help ft-show-help "Show key bindings"))))
+    (file-tree-action-specifications ft-action-handler)))
 
 (define (ft-run-action action)
   (fm-action-run *ft-actions* action event-result/consume))
