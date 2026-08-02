@@ -4,9 +4,15 @@
 (provide fm-run! fm-copy! fm-move! fm-trash! fm-delete! fm-paste! fm-rename! fm-create! fm-valid-name?)
 
 (define (fm-run! program args)
-  (let ([proc (~> (command program args) with-stderr-piped spawn-process)])
+  ;; Never let child output inherit Helix's TUI. Some successful commands,
+  ;; notably osascript, print a result that otherwise remains on the editor.
+  (let ([proc (~> (command program args)
+                  with-stdout-piped
+                  with-stderr-piped
+                  spawn-process)])
     (if (Ok? proc)
         (let* ([child (Ok->value proc)]
+               [_stdout (read-port-to-string (child-stdout child))]
                [stderr (trim (read-port-to-string (child-stderr child)))]
                [status (wait child)])
           (cond [(not (Ok? status))
@@ -45,7 +51,7 @@
     [(equal? (current-os!) "macos")
      (fm-run! "osascript"
               (list "-e"
-                    "on run argv\ntell application \"Finder\" to delete POSIX file (item 1 of argv)\nend run"
+                    "on run argv\nset itemToDelete to POSIX file (item 1 of argv) as alias\ntell application \"Finder\" to delete itemToDelete\nend run"
                     path))]
     [else (fm-run! "gio" (list "trash" "--" path))]))
 
