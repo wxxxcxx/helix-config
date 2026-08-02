@@ -1,6 +1,7 @@
 (require (only-in "../../use-feature.scm"
                   use-feature
                   use-feature-initialize!
+                  use-feature-initialize-elapsed-milliseconds
                   use-feature-failures
                   use-feature-report-failures!
                   use-feature-reset-failures!
@@ -54,8 +55,16 @@
               "registered feature waits for final initialization")
 (assert-equal (use-feature-status 'good) 'pending
               "late dependency waits for final initialization")
+(assert-equal (use-feature-initialize-elapsed-milliseconds) #f
+              "feature timer is idle before initialization")
 
 (use-feature-initialize!)
+
+(define *initialize-elapsed-ms* (use-feature-initialize-elapsed-milliseconds))
+(unless (integer? *initialize-elapsed-ms*)
+  (error "feature initialization should record elapsed milliseconds"))
+(unless (>= *initialize-elapsed-ms* 0)
+  (error "feature initialization elapsed time should be nonnegative"))
 
 (assert-equal
   (with-handler (lambda (_) 'not-visible)
@@ -81,3 +90,5 @@
               "failure summary is reported")
 (use-feature-reset-failures!)
 (assert-equal (use-feature-status 'good) 'missing "reset clears feature statuses")
+(assert-equal (use-feature-initialize-elapsed-milliseconds) #f
+              "reset clears feature initialization timer")

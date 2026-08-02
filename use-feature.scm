@@ -1,5 +1,8 @@
+(require-builtin steel/time)
+
 (provide use-feature
          use-feature-initialize!
+         use-feature-initialize-elapsed-milliseconds
          use-feature-failures
          use-feature-report-failures!
          use-feature-reset-failures!
@@ -10,6 +13,7 @@
 (define *use-feature-order* '())
 (define *use-feature-stack* '())
 (define *use-feature-statuses* (hash))
+(define *use-feature-initialize-start* #f)
 (define *use-feature-root* (parent-name (current-module)))
 
 (define (use-feature-error-message name phase err)
@@ -171,7 +175,12 @@
                  (equal? status-after-dependencies 'ready)
                  (use-feature-run-definition! definition))))]))
 
+(define (use-feature-initialize-elapsed-milliseconds)
+  (and *use-feature-initialize-start*
+       (duration->millis (instant/elapsed *use-feature-initialize-start*))))
+
 (define (use-feature-initialize!)
+  (set! *use-feature-initialize-start* (instant/now))
   (for-each use-feature-initialize-one! (reverse *use-feature-order*)))
 
 (define (use-feature-failures)
@@ -189,6 +198,7 @@
   (set! *use-feature-definitions* (hash))
   (set! *use-feature-order* '())
   (set! *use-feature-stack* '())
+  (set! *use-feature-initialize-start* #f)
   (set! *use-feature-statuses* (hash)))
 
 ;; Usage:

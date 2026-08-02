@@ -6,6 +6,7 @@
 (require (only-in "use-feature.scm"
                   use-feature
                   use-feature-initialize!
+                  use-feature-initialize-elapsed-milliseconds
                   use-feature-report-failures!))
 
 ;; steel/meta bindings must be evaluated in the startup module.
@@ -86,15 +87,17 @@
   (:load "features/input-source/input-source.scm")
   (:config (input-source-init)))
 
-(use-feature splash
-  (:load "features/splash/splash.scm")
-  (:config (splash-smart-show)))
-
 ;; Apply after all user language configuration so existing LSP definitions and
 ;; ordering are preserved; color-swatches is appended as the final server.
 (use-feature color-swatches
   (:load "features/color-swatches/color-swatches.scm")
   (:config (color-swatches-init)))
+
+;; Initialize Splash last so its timing includes every other feature.
+(use-feature splash
+  (:load "features/splash/splash.scm")
+  (:config
+    (splash-smart-show (use-feature-initialize-elapsed-milliseconds))))
 
 (use-feature-initialize!)
 (use-feature-report-failures! set-warning!)
