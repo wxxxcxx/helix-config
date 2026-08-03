@@ -1,10 +1,13 @@
 (require "steel/result")
 
-(provide package-git-dependency
+(provide package
+         package-git-dependency
          package-install!
          package-install-all!
          package-clean!
          package-clean-all!
+         package-reference
+         package-reference-kind
          package-status
          package-list!)
 
@@ -14,9 +17,11 @@
 (define package-path-separator (path-separator))
 
 (define (package-path-join base child)
+  (define portable-child
+    (string-replace child "/" package-path-separator))
   (if (ends-with? base package-path-separator)
-      (string-append base child)
-      (string-append base package-path-separator child)))
+      (string-append base portable-child)
+      (string-append base package-path-separator portable-child)))
 
 (define (package-valid-name? name)
   (and (string? name)
@@ -26,22 +31,68 @@
        (not (string-contains? name ":"))
        (not (string-contains? name ".."))))
 
-(define (package-git-dependency #:name name #:url url
-                                #:revision [revision #f]
-                                #:verify [verify #f])
+(define (package-reference-value? value)
+  (and (string? value) (not (string=? value ""))))
+
+(define (package-valid-verification-path? path)
+  (and (string? path)
+       (not (string=? path ""))
+       (not (string=? (substring path 0 1) "/"))
+       (not (string-contains? path "\\"))
+       (not (string-contains? path ":"))
+       (not (member ".." (split-many path "/")))))
+
+(define (package #:name name #:url url
+                 #:commit [commit #f]
+                 #:branch [branch #f]
+                 #:tag [tag #f]
+                 #:revision [revision #f]
+                 #:verify [verify #f])
   (unless (package-valid-name? name)
     (error (string-append "invalid package name: " (to-string name))))
   (unless (and (string? url) (not (string=? url "")))
     (error (string-append "invalid package URL for " name)))
-  (when (and revision (not (string? revision)))
-    (error (string-append "invalid package revision for " name)))
-  (when (and verify (not (string? verify)))
+  (for-each
+    (lambda (reference)
+      (when (and (cdr reference)
+                 (not (package-reference-value? (cdr reference))))
+        (error (string-append "invalid package "
+                              (symbol->string (car reference))
+                              " for " name))))
+    (list (cons 'commit commit)
+          (cons 'branch branch)
+          (cons 'tag tag)
+          (cons 'revision revision)))
+  (define references
+    (filter (lambda (reference) (cdr reference))
+            (list (cons 'commit commit)
+                  (cons 'branch branch)
+                  (cons 'tag tag)
+                  (cons 'commit revision))))
+  (when (> (length references) 1)
+    (error (string-append
+             "package " name
+             " accepts only one of commit, branch, or tag")))
+  (when (and verify (not (package-valid-verification-path? verify)))
     (error (string-append "invalid package verification path for " name)))
-  (hash 'name name 'url url 'revision revision 'verify verify))
+  (define reference (and (not (null? references)) (car references)))
+  (hash 'name name
+        'url url
+        'reference-kind (and reference (car reference))
+        'reference (and reference (cdr reference))
+        'verify verify))
+
+;; Compatibility for callers using the old revision-only constructor.
+(define (package-git-dependency #:name name #:url url
+                                #:revision [revision #f]
+                                #:verify [verify #f])
+  (package #:name name #:url url #:revision revision #:verify verify))
 
 (define (package-name dependency) (hash-get dependency 'name))
 (define (package-url dependency) (hash-get dependency 'url))
-(define (package-revision dependency) (hash-get dependency 'revision))
+(define (package-reference dependency) (hash-get dependency 'reference))
+(define (package-reference-kind dependency)
+  (hash-get dependency 'reference-kind))
 (define (package-verify dependency) (hash-get dependency 'verify))
 
 (define (package-steel-path child)
@@ -75,6 +126,12 @@
        (with-handler (lambda (_) #f)
          (package-command-output "git" (append (list "-C" source) arguments)))))
 
+(define (package-git-revision dependency reference)
+  (package-git-value
+    dependency
+    (list "rev-parse" "--verify" "--quiet"
+          (string-append reference "^{commit}"))))
+
 (define (package-current-revision dependency)
   ;; Forge creates a detached checkout plus refs/heads/HEAD for pinned git
   ;; dependencies. Query that exact ref first to avoid Git's ambiguous-HEAD
@@ -89,6 +146,20 @@
 (define (package-current-url dependency)
   (package-git-value dependency (list "remote" "get-url" "origin")))
 
+(define (package-expected-revision dependency)
+  (define reference (package-reference dependency))
+  (define kind (package-reference-kind dependency))
+  (cond [(not reference) #f]
+        [(equal? kind 'branch)
+         (or (package-git-revision
+               dependency (string-append "refs/remotes/origin/" reference))
+             (package-git-revision
+               dependency (string-append "refs/heads/" reference)))]
+        [(equal? kind 'tag)
+         (package-git-revision
+           dependency (string-append "refs/tags/" reference))]
+        [else (package-git-revision dependency reference)]))
+
 (define (package-verification-ready? dependency)
   (define verify (package-verify dependency))
   (or (not verify)
@@ -96,18 +167,21 @@
 
 (define (package-status dependency)
   (define installed? (path-exists? (package-install-path dependency)))
-  (define source-url (package-current-url dependency))
-  (define current-revision (package-current-revision dependency))
-  (define expected-revision (package-revision dependency))
-  (cond [(not installed?) 'missing]
-        [(or (not source-url)
-             (not (string=? source-url (package-url dependency)))
-             (and expected-revision
-                  (or (not current-revision)
-                      (not (string=? current-revision expected-revision))))
-             (not (package-verification-ready? dependency)))
-         'stale]
-        [else 'ready]))
+  (if (not installed?)
+      'missing
+      (let ([source-url (package-current-url dependency)]
+            [current-revision (package-current-revision dependency)]
+            [reference (package-reference dependency)]
+            [expected-revision (package-expected-revision dependency)])
+        (if (or (not source-url)
+                (not (string=? source-url (package-url dependency)))
+                (and reference
+                     (or (not current-revision)
+                         (not expected-revision)
+                         (not (string=? current-revision expected-revision))))
+                (not (package-verification-ready? dependency)))
+            'stale
+            'ready))))
 
 (define (package-prepare-source! dependency)
   (define source-path (package-source-path dependency))
@@ -123,23 +197,24 @@
                              (package-url dependency)))]))
 
 (define (package-install! dependency #:force [force #f])
-  (unless (which "forge")
-    (error "forge is required; build the Steel-enabled Helix fork first"))
   (define status (package-status dependency))
   (if (and (equal? status 'ready) (not force))
       (displayln (string-append (package-name dependency) " is already ready"))
-      (let ([arguments
-             (append (list "pkg" "install" "--git" (package-url dependency))
-                     (if (package-revision dependency)
-                         (list "--rev" (package-revision dependency))
-                         '())
-                     (list "--force"))])
-        (package-prepare-source! dependency)
-        (displayln (string-append "Installing " (package-name dependency) " with Forge..."))
-        (package-run! "forge" arguments)
-        (unless (equal? (package-status dependency) 'ready)
-          (error (string-append "package verification failed: "
-                                (package-name dependency)))))))
+      (begin
+        (unless (which "forge")
+          (error "forge is required; build the Steel-enabled Helix fork first"))
+        (let ([arguments
+               (append (list "pkg" "install" "--git" (package-url dependency))
+                       (if (package-reference dependency)
+                           (list "--rev" (package-reference dependency))
+                           '())
+                       (list "--force"))])
+          (package-prepare-source! dependency)
+          (displayln (string-append "Installing " (package-name dependency) " with Forge..."))
+          (package-run! "forge" arguments)
+          (unless (equal? (package-status dependency) 'ready)
+            (error (string-append "package verification failed: "
+                                  (package-name dependency))))))))
 
 (define (package-install-all! dependencies #:force [force #f])
   (for-each (lambda (dependency)

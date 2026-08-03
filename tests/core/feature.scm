@@ -25,9 +25,11 @@
       (unless (and (integer? elapsed) (>= elapsed 0))
         (error (string-append "profile " (symbol->string key)
                               " should be a nonnegative integer"))))
-    '(load-ms config-ms total-ms))
+    '(package-ms load-ms config-ms total-ms))
   (assert-equal (hash-get profile 'total-ms)
-                (+ (hash-get profile 'load-ms) (hash-get profile 'config-ms))
+                (+ (hash-get profile 'package-ms)
+                   (hash-get profile 'load-ms)
+                   (hash-get profile 'config-ms))
                 "profile total is the sum of its phases"))
 
 (define (profiles-descending? profiles)
@@ -63,6 +65,10 @@
   (:load "tests/fixtures/feature/bad-runtime.scm")
   (:config (broken-init)))
 (feature missing
+  (:load "tests/fixtures/feature/missing.scm"))
+(feature bad-package
+  (:package #f)
+  ;; This path must never be loaded because package installation runs first.
   (:load "tests/fixtures/feature/missing.scm"))
 (feature blocked-missing
   (:depends never-declared)
@@ -100,6 +106,8 @@
               "feature with later ready dependency initializes")
 (assert-equal (feature-status 'bad-runtime) 'failed
               "config failure marks feature failed")
+(assert-equal (feature-status 'bad-package) 'failed
+              "package failure marks feature failed")
 (assert-equal (feature-status 'blocked-missing) 'skipped
               "missing dependency skips feature")
 (assert-equal (feature-status 'blocked-failed) 'skipped
@@ -108,15 +116,21 @@
               "independent feature after failures is ready")
 (for-each
   (lambda (name) (assert-profile (feature-profile name) name))
-  '(dependent blocked-failed good bad-syntax bad-runtime missing
+  '(dependent blocked-failed good bad-syntax bad-runtime missing bad-package
               blocked-missing after-failure))
 (unless (profiles-descending? (feature-profiles))
   (error "feature profiles should be sorted by descending total time"))
-(assert-equal (length (feature-failures)) 5 "failures are isolated")
+(define *bad-package-failure*
+  (car (filter (lambda (failure)
+                 (equal? (hash-get failure 'name) 'bad-package))
+               (feature-failures))))
+(assert-equal (hash-get *bad-package-failure* 'phase) 'package
+              "package failures record their startup phase")
+(assert-equal (length (feature-failures)) 6 "failures are isolated")
 (define *reported-message* #f)
 (feature-report-failures! (lambda (message) (set! *reported-message* message)))
 (assert-equal *reported-message*
-              "Configuration skipped 5 feature(s); see the Helix log."
+              "Configuration skipped 6 feature(s); see the Helix log."
               "failure summary is reported")
 (feature-reset-failures!)
 (assert-equal (feature-status 'good) 'missing "reset clears feature statuses")

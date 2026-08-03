@@ -1,12 +1,11 @@
-(require "package.scm")
+(require (only-in "package.scm"
+                  package-clean-all!
+                  package-install-all!
+                  package-list!))
+(require (only-in "packages.scm" steel-pty-package))
 
 (define dependencies
-  (list
-    (package-git-dependency
-      #:name "steel-pty"
-      #:url "https://github.com/wxxxcxx/steel-pty"
-      #:revision "2b2623ddae415f24db0bf80b8da2f081a0bae34f"
-      #:verify "term.scm")))
+  (list steel-pty-package))
 
 (define (setup-script-argument? value)
   (and (string? value)

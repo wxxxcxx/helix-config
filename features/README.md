@@ -24,6 +24,24 @@ explicit dependencies rather than declaration position. Helix merges each
 feature's global keymap incrementally, so a broken feature cannot suppress
 bindings from healthy ones.
 
+External Steel cogs belong in the owning feature's `(:package ...)` clause.
+Package installation runs after feature dependencies are ready and before the
+feature module is loaded. A package failure skips only that feature. Package
+specifications in `packages.scm` accept one optional Git selector:
+`#:commit`, `#:branch`, or `#:tag`. Declarations use portable `/` paths; package
+installation invokes Git and Forge directly without a platform-specific shell.
+
+```scheme
+(define example-package
+  (package #:name "example"
+           #:url "https://example.com/example.git"
+           #:tag "v1.0.0"))
+
+(feature example
+  (:package example-package)
+  (:load "features/example/example.scm"))
+```
+
 Bindings used only while a component is active remain inside that component;
 they are part of its event protocol rather than the user's global configuration.
 

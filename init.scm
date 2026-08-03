@@ -8,6 +8,7 @@
                   feature-initialize!
                   feature-initialize-elapsed-milliseconds
                   feature-report-failures!))
+(require (only-in "packages.scm" steel-pty-package))
 
 ;; steel/meta bindings must be evaluated in the startup module.
 (when (string=? (or (with-handler (lambda (_) #f) (env-var "TERM")) "") "")
@@ -37,6 +38,7 @@
 
 (feature terminal
   (:depends panel)
+  (:package steel-pty-package)
   (:load "features/terminal/terminal.scm")
   (:config
     (panel-register-mode! 'bottom 'terminal (terminal-panel-mode))

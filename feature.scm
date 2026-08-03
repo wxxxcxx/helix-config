@@ -1,4 +1,5 @@
 (require-builtin steel/time)
+(require (only-in "package.scm" package-install-all!))
 
 (provide feature
          feature-initialize!
@@ -70,7 +71,7 @@
         (hash-insert *feature-statuses* name status)))
 
 (define (feature-empty-profile name)
-  (hash 'name name 'load-ms 0 'config-ms 0 'total-ms 0))
+  (hash 'name name 'package-ms 0 'load-ms 0 'config-ms 0 'total-ms 0))
 
 (define (feature-profile name)
   (hash-try-get *feature-profiles* name))
@@ -84,17 +85,21 @@
 (define (feature-record-elapsed! name phase elapsed-ms)
   (define profile
     (or (feature-profile name) (feature-empty-profile name)))
-  (define elapsed-key (if (equal? phase 'load) 'load-ms 'config-ms))
+  (define elapsed-key
+    (cond [(equal? phase 'package) 'package-ms]
+          [(equal? phase 'load) 'load-ms]
+          [else 'config-ms]))
   (define with-phase (hash-insert profile elapsed-key elapsed-ms))
   (define updated
     (hash-insert with-phase
                  'total-ms
-                 (+ (hash-get with-phase 'load-ms)
+                 (+ (hash-get with-phase 'package-ms)
+                    (hash-get with-phase 'load-ms)
                     (hash-get with-phase 'config-ms))))
   (set! *feature-profiles*
         (hash-insert *feature-profiles* name updated)))
 
-(define (feature-register! name dependencies path config-thunk)
+(define (feature-register! name dependencies packages path config-thunk)
   (if (hash-contains? *feature-definitions* name)
       (begin
         (feature-set-status! name 'failed)
@@ -113,10 +118,13 @@
               (hash-insert
                 *feature-definitions*
                 name
-                (hash 'name name
-                      'dependencies dependencies
-                      'path path
-                      'config config-thunk)))
+                (hash-insert
+                  (hash 'name name
+                        'dependencies dependencies
+                        'path path
+                        'config config-thunk)
+                  'packages
+                  packages)))
         (set! *feature-order* (cons name *feature-order*))
         (feature-set-status! name 'pending)
         #t)))
@@ -155,31 +163,39 @@
     name phase (duration->millis (instant/elapsed started-at)))
   succeeded?)
 
-(define (feature-run! name dependencies load-thunk config-thunk)
+(define (feature-run! name dependencies package-thunk load-thunk config-thunk)
   (if (not (feature-dependencies-ready? name dependencies))
       (begin
         (feature-set-status! name 'skipped)
         #f)
       (begin
-        (feature-set-status! name 'loading)
-        (if (not (feature-run-phase! name 'load load-thunk))
+        (feature-set-status! name 'installing)
+        (if (not (feature-run-phase! name 'package package-thunk))
             (begin
               (feature-set-status! name 'failed)
               #f)
             (begin
-              (feature-set-status! name 'loaded)
-              (if (feature-run-phase! name 'config config-thunk)
-                  (begin
-                    (feature-set-status! name 'ready)
-                    #t)
+              (feature-set-status! name 'loading)
+              (if (not (feature-run-phase! name 'load load-thunk))
                   (begin
                     (feature-set-status! name 'failed)
-                    #f)))))))
+                    #f)
+                  (begin
+                    (feature-set-status! name 'loaded)
+                    (if (feature-run-phase! name 'config config-thunk)
+                        (begin
+                          (feature-set-status! name 'ready)
+                          #t)
+                        (begin
+                          (feature-set-status! name 'failed)
+                          #f)))))))))
 
 (define (feature-run-definition! definition)
   (feature-run!
     (hash-get definition 'name)
     (hash-get definition 'dependencies)
+    (lambda ()
+      (package-install-all! (hash-get definition 'packages)))
     (lambda ()
       ;; Dynamic require crosses the load handler instead of aborting startup,
       ;; while preserving the feature module's `provide` boundary.
@@ -250,6 +266,9 @@
 ;; Usage:
 ;; (feature example
 ;;   (:depends foundation)
+;;   (:package (package #:name "example"
+;;                     #:url "https://example.com/example.git"
+;;                     #:tag "v1.0.0"))
 ;;   (:load "features/example/example.scm")
 ;;   (:config (example-init)))
 ;;
@@ -260,16 +279,53 @@
 ;; This isolates control flow, not state: effects completed before an exception
 ;; cannot be rolled back. Required files must therefore keep their top level pure.
 (define-syntax feature
-  (syntax-rules (:depends :load :config)
-    [(_ name (:depends dependency ...) (:load path) (:config form ...))
+  (syntax-rules (:depends :package :load :config)
+    [(_ name
+        (:depends dependency ...)
+        (:package package-spec ...)
+        (:load path)
+        (:config form ...))
      (feature-register!
        'name
        '(dependency ...)
+       (list package-spec ...)
        path
        (lambda () (feature-configure! '(begin form ...))))]
+    [(_ name (:depends dependency ...) (:package package-spec ...) (:load path))
+     (feature name
+              (:depends dependency ...)
+              (:package package-spec ...)
+              (:load path)
+              (:config))]
+    [(_ name (:depends dependency ...) (:load path) (:config form ...))
+     (feature name
+              (:depends dependency ...)
+              (:package)
+              (:load path)
+              (:config form ...))]
     [(_ name (:depends dependency ...) (:load path))
-     (feature name (:depends dependency ...) (:load path) (:config))]
+     (feature name
+              (:depends dependency ...)
+              (:package)
+              (:load path)
+              (:config))]
+    [(_ name (:package package-spec ...) (:load path) (:config form ...))
+     (feature name
+              (:depends)
+              (:package package-spec ...)
+              (:load path)
+              (:config form ...))]
+    [(_ name (:package package-spec ...) (:load path))
+     (feature name
+              (:depends)
+              (:package package-spec ...)
+              (:load path)
+              (:config))]
     [(_ name (:load path) (:config form ...))
-     (feature name (:depends) (:load path) (:config form ...))]
+     (feature name
+              (:depends)
+              (:package)
+              (:load path)
+              (:config form ...))]
     [(_ name (:load path))
      (feature name (:load path) (:config))]))
