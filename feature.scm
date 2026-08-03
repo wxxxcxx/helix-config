@@ -18,6 +18,7 @@
 (define *feature-profiles* (hash))
 (define *feature-initialize-start* #f)
 (define *feature-root* (parent-name (current-module)))
+(define *feature-path-separator* (path-separator))
 
 (define (feature-error-message name phase err)
   (string-append "feature "
@@ -44,7 +45,12 @@
     (begin (thunk) #t)))
 
 (define (feature-resolve-path path)
-  (canonicalize-path (string-append *feature-root* "/" path)))
+  ;; Windows module paths can use the verbatim `\\?\` prefix, where forward
+  ;; slashes are not accepted. Feature declarations stay portable with `/`.
+  (canonicalize-path
+    (string-append *feature-root*
+                   *feature-path-separator*
+                   (string-replace path "/" *feature-path-separator*))))
 
 (define (feature-load! path)
   ;; Evaluate require dynamically so failures remain catchable while Steel's
