@@ -209,7 +209,7 @@
    ;; Cursor — fallback / generic
    "ui.cursor"              (hash 'fg fg       'bg accent-dim)
    "ui.cursor.primary"      (hash 'fg fg-bright 'bg accent)
-   "ui.cursor.match"        (hash 'fg accent   'bg bg-hl)
+   "ui.cursor.match"        (hash 'fg bg       'bg yellow)
    "ui.cursorline"          (hash 'bg bg-alt)
    "ui.cursorline.primary"  (hash 'bg bg-hl)
 

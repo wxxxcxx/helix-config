@@ -209,9 +209,7 @@
    "ui.cursor.primary"      (if ansi?
                                 (hash 'fg accent 'modifiers '("reversed" "bold"))
                                 (hash 'fg fg-bright 'bg accent))
-   "ui.cursor.match"        (if ansi?
-                                (hash 'fg accent 'modifiers '("underlined" "bold"))
-                                (hash 'fg accent 'bg bg-hl))
+   "ui.cursor.match"        (hash 'fg bg 'bg yellow 'modifiers '("bold"))
    "ui.cursorline"          (if ansi? (hash) (hash 'bg bg-alt))
    "ui.cursorline.primary"  (if ansi?
                                 (hash 'modifiers '("underlined"))
