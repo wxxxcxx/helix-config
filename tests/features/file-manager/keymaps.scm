@@ -1,4 +1,4 @@
-(require "../../../features/core/collections.scm")
+(require "../../../core/collections.scm")
 (require "../../../features/file-manager/file-explorer/defaults.scm")
 (require "../../../features/file-manager/file-tree/defaults.scm")
 

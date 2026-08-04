@@ -7,10 +7,10 @@
                   editor-switch-action!
                   editor->doc-id
                   register-hook))
-(require (only-in "features/file-manager/core/files.scm"
-                  fm-entry-label
-                  fm-parent-dir))
-(require (only-in "../../core/collections.scm"
+(require (only-in "../../../core/path.scm"
+                  core-path-entry-label
+                  core-path-parent))
+(require (only-in "../../../core/collections.scm"
                   core-member?))
 (require (only-in "features/ivy/core.scm"
                   IvyCandidate
@@ -53,7 +53,7 @@
 
 (define (ivy-buffer-annotation path current? dirty?)
   (define status (ivy-buffer-status current? dirty?))
-  (define parent (and path (fm-parent-dir path)))
+  (define parent (and path (core-path-parent path)))
   (cond [(and parent (not (string=? status "")))
          (string-append status "  " parent)]
         [parent parent]
@@ -75,7 +75,7 @@
                          (editor-document-dirty? doc-id))]
                [current? (equal? doc-id current)]
                [label (if path
-                          (fm-entry-label path)
+                          (core-path-entry-label path)
                           (string-append "[scratch "
                                          (number->string scratch-index)
                                          "]"))]

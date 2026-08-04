@@ -1,3 +1,6 @@
+(require (only-in "../../../core/process.scm"
+                  core-process-trimmed-output))
+
 (provide fe-bookmarks-load fe-bookmarks-save!
          fe-bookmark-ref fe-bookmark-set fe-bookmark-remove fe-bookmark-replace
          fe-bookmark-paths fe-bookmark-prune fe-bookmark-key-for-path)
@@ -5,9 +8,7 @@
 (define (fe-capture-output program args)
   (with-handler
     (lambda (_) #f)
-    (let ([proc (~> (command program args) with-stdout-piped spawn-process)])
-      (and (Ok? proc)
-           (trim (read-port-to-string (child-stdout (Ok->value proc))))))))
+    (core-process-trimmed-output program args)))
 
 (define (fe-bookmarks-state-dir)
   ;; Mirrors helix_loader::cache_dir(), which uses the XDG cache strategy

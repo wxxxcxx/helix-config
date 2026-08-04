@@ -3,6 +3,7 @@
 (require "helix/components.scm")
 (require "helix/editor.scm")
 (require "helix/misc.scm")
+(require (only-in "../../../core/process.scm" core-process-output))
 (require "features/ui/style.scm")
 
 (define *git-root-by-dir* (hash))
@@ -12,11 +13,7 @@
 (define (git-output dir args)
   (with-handler
     (lambda (err) #f)
-    (let* ([proc (~> (command "git" (append (list "-C" dir) args))
-                     with-stdout-piped
-                     spawn-process)])
-      (and (Ok? proc)
-           (read-port-to-string (child-stdout (Ok->value proc)))))))
+    (core-process-output "git" (append (list "-C" dir) args))))
 
 (define (non-empty-output raw)
   (and raw

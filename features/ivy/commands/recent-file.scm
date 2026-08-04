@@ -4,9 +4,9 @@
                   editor-all-documents
                   editor-document->path
                   register-hook))
-(require (only-in "features/file-manager/core/files.scm"
-                  fm-entry-label
-                  fm-parent-dir))
+(require (only-in "../../../core/path.scm"
+                  core-path-entry-label
+                  core-path-parent))
 (require (only-in "features/ivy/core.scm"
                   IvyCandidate
                   IvyCandidate-value
@@ -34,8 +34,8 @@
 
 (define (ivy-recent-file-candidates)
   (map (lambda (path)
-         (IvyCandidate (fm-entry-label path)
-                       (fm-parent-dir path)
+         (IvyCandidate (core-path-entry-label path)
+                       (core-path-parent path)
                        path
                        path))
        (filter path-exists? *ivy-recent-files*)))

@@ -1,6 +1,8 @@
 (require "helix/editor.scm")
 (require "helix/misc.scm")
 (require "helix/static.scm")
+(require (only-in "../../core/process.scm"
+                  core-process-trimmed-output))
 (require (only-in "features/panel/panel.scm"
                   panel-focused-mode
                   panel-register-focus-hook!))
@@ -35,17 +37,8 @@
     (lambda (err)
       (set-warning! (string-append "capture-output: " (to-string err)))
       #f)
-    (let* ([proc (~> (command (car cmd) (cdr cmd))
-                     with-stdout-piped
-                     spawn-process)]
-           [ok? (Ok? proc)])
-      (and ok?
-           (let* ([handle (Ok->value proc)]
-                  [raw (read-port-to-string (child-stdout handle))])
-             (and (string? raw)
-                  (let ([trimmed (trim raw)])
-                    (and (not (string=? trimmed ""))
-                         trimmed))))))))
+    (let ([output (core-process-trimmed-output (car cmd) (cdr cmd))])
+      (and output (not (string=? output "")) output))))
 
 (define (run-command cmd . extra-args)
   (spawn-process

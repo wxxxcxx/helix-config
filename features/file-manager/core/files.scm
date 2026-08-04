@@ -1,7 +1,17 @@
-(require "helix/misc.scm")
-(require (only-in "../../core/list.scm"
+(require (only-in "../../../core/list.scm"
                   list-drop
                   list-take))
+(require (only-in "../../../core/path.scm"
+                  core-path-base-name
+                  core-path-directory-entries
+                  core-path-entry-label
+                  core-path-label
+                  core-path-parent
+                  core-path-read-directory
+                  core-path-windows-drive-root?
+                  core-path-windows-drives-root?))
+(require (only-in "../../../core/process.scm"
+                  core-process-trimmed-output))
 (require (only-in "features/file-manager/core/collections.scm" fm-member?))
 (require (only-in "features/ui/text.scm"
                   ui-display-width
@@ -23,51 +33,20 @@
 (define (fm-drop lst n)
   (list-drop lst n))
 
-(define (fm-base-name path) (file-name path))
-(define (fm-parent-dir path) (parent-name path))
-
-(define (fm-windows-drives-root? path)
-  (and (equal? (current-os!) "windows") (string=? path "")))
-
-(define (fm-windows-drive-root? path)
-  (and (equal? (current-os!) "windows")
-       (>= (string-length path) 2)
-       (char=? (string-ref path 1) #\:)
-       (or (= (string-length path) 2)
-           (and (= (string-length path) 3)
-                (or (char=? (string-ref path 2) #\\)
-                    (char=? (string-ref path 2) #\/))))))
-
-(define (fm-entry-label path)
-  (if (fm-windows-drive-root? path)
-      (substring path 0 2)
-      (fm-base-name path)))
-
-(define (fm-path-label path)
-  (if (fm-windows-drives-root? path) "Drives" path))
-
-(define (fm-read-dir path)
-  (with-handler (lambda (_) '()) (read-dir path)))
+(define fm-base-name core-path-base-name)
+(define fm-parent-dir core-path-parent)
+(define fm-windows-drives-root? core-path-windows-drives-root?)
+(define fm-windows-drive-root? core-path-windows-drive-root?)
+(define fm-entry-label core-path-entry-label)
+(define fm-path-label core-path-label)
+(define fm-read-dir core-path-read-directory)
 
 (define *fm-preview-footer-cache* (hash))
 
 (define (fm-capture-output program args)
   (with-handler
     (lambda (_) #f)
-    (let ([proc (~> (command program args) with-stdout-piped spawn-process)])
-      (and (Ok? proc)
-           (trim (read-port-to-string (child-stdout (Ok->value proc))))))))
-
-(define (fm-windows-drive-paths)
-  (define output
-    (fm-capture-output
-      "powershell.exe"
-      (list "-NoProfile" "-Command"
-            "Get-PSDrive -PSProvider FileSystem | ForEach-Object { $_.Root }")))
-  (if output
-      (filter (lambda (path) (not (string=? path "")))
-              (map trim (split-many output "\n")))
-      '()))
+    (core-process-trimmed-output program args)))
 
 (define (fm-nonempty-strings values)
   (filter (lambda (value) (not (string=? value ""))) values))
@@ -107,23 +86,7 @@
 (define (fm-clear-preview-footer-cache!)
   (set! *fm-preview-footer-cache* (hash)))
 
-(define (fm-dotfile? name)
-  (and (> (string-length name) 0) (char=? (string-ref name 0) #\.)))
-
-(define (fm-sort-files entries)
-  (define dirs (sort (filter is-dir? entries) string<?))
-  (define files (sort (filter (lambda (p) (not (is-dir? p))) entries) string<?))
-  (append dirs files))
-
-(define (fm-read-dir-names path show-hidden?)
-  (define entries (if (fm-windows-drives-root? path)
-                      (fm-windows-drive-paths)
-                      (fm-read-dir path)))
-  (fm-sort-files
-    (filter (lambda (p)
-              (let ([name (fm-entry-label p)])
-                (or show-hidden? (not (fm-dotfile? name)))))
-            entries)))
+(define fm-read-dir-names core-path-directory-entries)
 
 (define (fm-filter-entries entries query)
   (if (string=? query "")

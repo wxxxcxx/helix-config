@@ -46,6 +46,6 @@ Bindings used only while a component is active remain inside that component;
 they are part of its event protocol rather than the user's global configuration.
 
 Panel modes depend on the shared `panel/` lifecycle API. Other feature
-directories should depend only on their own files, `ui/`, or external Helix
-modules. Cross-feature placement stays visible in `init.scm` through explicit
-dependencies and mode registration.
+directories should depend only on their own files, the repository-level
+`../core/`, `ui/`, or external Helix modules. Cross-feature placement stays
+visible in `init.scm` through explicit dependencies and mode registration.

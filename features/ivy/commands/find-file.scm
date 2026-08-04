@@ -1,12 +1,13 @@
 (require "helix/misc.scm")
 (require (only-in "helix/commands.scm" open))
 (require (only-in "helix/static.scm" cx->current-file get-helix-cwd))
-(require (only-in "features/file-manager/core/files.scm"
-                  fm-entry-label
-                  fm-parent-dir
-                  fm-read-dir-names
-                  fm-windows-drive-root?
-                  fm-windows-drives-root?))
+(require (only-in "../../../core/path.scm"
+                  core-path-directory-entries
+                  core-path-ensure-trailing-separator
+                  core-path-entry-label
+                  core-path-join
+                  core-path-parent
+                  core-path-parent-or-self))
 (require (only-in "features/ivy/core.scm"
                   IvyCandidate
                   IvyCandidate-value))
@@ -16,38 +17,20 @@
 
 (define *ivy-find-file-directory* "")
 
-(define (find-file-root-directory? directory)
-  (or (string=? directory (path-separator))
-      (fm-windows-drive-root? directory)
-      (fm-windows-drives-root? directory)))
-
-(define (find-file-parent-directory directory)
-  (if (find-file-root-directory? directory)
-      directory
-      (fm-parent-dir directory)))
-
-(define (find-file-path-join directory name)
-  (define separator (path-separator))
-  (if (string=? name "")
-      directory
-      (string-append (trim-end-matches directory separator) separator name)))
-
 (define (find-file-prompt directory)
-  (define separator (path-separator))
-  (string-append "Open  " directory
-                 (if (ends-with? directory separator) "" separator)))
+  (string-append "Open  " (core-path-ensure-trailing-separator directory)))
 
 (define (find-file-candidates directory)
-  (define parent (find-file-parent-directory directory))
+  (define parent (core-path-parent-or-self directory))
   (define entries
     (map (lambda (path)
            (define directory? (is-dir? path))
-           (define name (fm-entry-label path))
+           (define name (core-path-entry-label path))
            (IvyCandidate (if directory? (string-append name (path-separator)) name)
                          (if directory? "dir" "file")
                          path
                          name))
-         (fm-read-dir-names directory #t)))
+         (core-path-directory-entries directory #t)))
   (if (string=? parent directory)
       entries
       (cons (IvyCandidate (string-append ".." (path-separator))
@@ -67,7 +50,7 @@
 (define (ivy-find-file)
   (define current-file (with-handler (lambda (_) #f) (cx->current-file)))
   (set! *ivy-find-file-directory*
-        (if current-file (fm-parent-dir current-file) (get-helix-cwd)))
+        (if current-file (core-path-parent current-file) (get-helix-cwd)))
   (define (confirm candidate)
     (define path (IvyCandidate-value candidate))
     (if (is-dir? path)
@@ -76,9 +59,9 @@
   (define (open-path path)
     (unless (string=? path "") (open path)))
   (define (open-input input)
-    (open-path (find-file-path-join *ivy-find-file-directory* input)))
+    (open-path (core-path-join *ivy-find-file-directory* input)))
   (define (up-directory)
-    (define parent (find-file-parent-directory *ivy-find-file-directory*))
+    (define parent (core-path-parent-or-self *ivy-find-file-directory*))
     (unless (string=? parent *ivy-find-file-directory*)
       (find-file-enter-directory! parent)))
   (ivy-read (find-file-prompt *ivy-find-file-directory*)

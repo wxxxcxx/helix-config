@@ -1,4 +1,4 @@
-(require (only-in "../core/list.scm"
+(require (only-in "../../core/list.scm"
                   list-drop
                   list-take))
 

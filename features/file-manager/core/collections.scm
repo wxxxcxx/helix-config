@@ -1,4 +1,4 @@
-(require "../../core/collections.scm")
+(require "../../../core/collections.scm")
 
 (provide fm-member? fm-add-unique)
 
