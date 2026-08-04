@@ -2,6 +2,8 @@
 
 (require "helix/configuration.scm")
 (require (only-in "helix/commands.scm" theme))
+(require (only-in "../../core/filesystem/watch/watch.scm"
+                  filesystem-watch-init))
 (require (only-in "features/ui/color.scm"
                   color-terminal?
                   indexed-terminal?))
@@ -38,6 +40,7 @@
               "language-servers" (append servers (list "steel-language-server")))))))
 
 (define (editor-init)
+  (filesystem-watch-init)
   (register-woz-theme)
   (register-woz-indexed-theme)
   (register-woz-ansi-theme)

@@ -2,6 +2,12 @@
 (require "helix/misc.scm")
 (require (only-in "helix/static.scm" cx->current-file))
 (require (prefix-in helix. "helix/commands.scm"))
+(require (only-in "../../../core/filesystem/snapshot.scm"
+                  filesystem-directory-snapshot
+                  filesystem-path-snapshot))
+(require (only-in "../../../core/filesystem/watch/watch.scm"
+                  filesystem-watch-refresh!
+                  filesystem-watch-register!))
 (require "features/file-manager/file-explorer/config.scm")
 (require (only-in "features/file-manager/file-explorer/defaults.scm"
                   file-explorer-action-specifications))
@@ -17,11 +23,26 @@
 (require "features/file-manager/file-explorer/render.scm")
 
 (provide file-explorer-configure!
+         file-explorer-init
          file-explorer-open
          file-explorer-close)
 
 (define fe-render-base
   (make-file-explorer-render fe-state-ref fe-state-set! fe-config-ref))
+
+(define (fe-directory-snapshot path)
+  (if (fm-windows-drives-root? path)
+      (list 'windows-drives (fm-read-dir-names path #t))
+      (filesystem-directory-snapshot path)))
+
+(define (fe-filesystem-snapshot)
+  (define directory (fe-ref 'path))
+  (define selected (fe-current-entry))
+  (list (fe-directory-snapshot (fm-parent-dir directory))
+        (fe-directory-snapshot directory)
+        (cond [(not selected) #f]
+              [(is-dir? selected) (fe-directory-snapshot selected)]
+              [else (filesystem-path-snapshot selected)])))
 
 (define (fe-render state rect frame)
   (fe-render-base state rect frame)
@@ -133,7 +154,7 @@
   (cond
     [(focus-lost-event? event) event-result/ignore]
     [(focus-gained-event? event)
-     (fe-reload!)
+     (filesystem-watch-refresh! 'file-explorer)
      event-result/ignore]
     [(and (fe-ref 'help-visible?) (key-event-escape? event))
      (fe-set! 'help-visible? #f)
@@ -185,3 +206,10 @@
   (fe-set! 'active #f)
   (fe-set! 'help-visible? #f)
   (pop-last-component-by-name! "file-explorer"))
+
+(define (file-explorer-init)
+  (filesystem-watch-register!
+    'file-explorer
+    (lambda () (fe-ref 'active))
+    fe-filesystem-snapshot
+    (lambda (_previous _current) (fe-reload!))))

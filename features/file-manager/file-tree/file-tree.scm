@@ -3,6 +3,10 @@
 (require "helix/editor.scm")
 (require (only-in "helix/static.scm" cx->current-file))
 (require (prefix-in helix. "helix/commands.scm"))
+(require (only-in "../../../core/filesystem/snapshot.scm"
+                  filesystem-directories-snapshot))
+(require (only-in "../../../core/filesystem/watch/watch.scm"
+                  filesystem-watch-register!))
 (require "features/file-manager/core/files.scm")
 (require (only-in "features/file-manager/core/collections.scm"
                   fm-add-unique
@@ -234,6 +238,13 @@
   (set! *ft-session* (fm-session-prune-marks *ft-session* path-exists?))
   (ft-rebuild!)
   (when selected (ft-select-path! selected)))
+
+(define (ft-filesystem-snapshot)
+  (filesystem-directories-snapshot
+    (foldl (lambda (path directories)
+             (fm-add-unique path directories))
+           (list *ft-root*)
+           *ft-expanded*)))
 
 (define (ft-sync!)
   (ft-sync-git!)
@@ -726,8 +737,11 @@
   (panel-close! 'file-tree))
 
 (define (file-tree-init)
-  (register-hook 'terminal-focus-gained
-                 (lambda () (when *ft-active* (ft-sync-filesystem!))))
+  (filesystem-watch-register!
+    'file-tree
+    (lambda () *ft-active*)
+    ft-filesystem-snapshot
+    (lambda (_previous _current) (ft-sync-filesystem!)))
   (register-hook 'document-focus-lost
                  (lambda (_) (ft-follow-current-file!)))
   (register-hook 'document-saved

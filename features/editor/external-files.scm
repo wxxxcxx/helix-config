@@ -4,41 +4,57 @@
                   editor-document->path
                   editor-document-dirty?
                   editor-document-last-saved
-                  editor-document-reload
-                  register-hook))
+                  editor-document-reload))
 (require (only-in "helix/misc.scm" set-status! set-warning!))
+(require (only-in "../../core/filesystem/snapshot.scm"
+                  FilesystemPathSnapshot-error
+                  FilesystemPathSnapshot-modified
+                  FilesystemPathSnapshot-state
+                  filesystem-path-snapshot
+                  filesystem-paths-snapshot))
 (require (only-in "features/editor/external-file-policy.scm"
                   external-file-action))
+(require (only-in "../../core/filesystem/watch/watch.scm"
+                  filesystem-watch-register!))
 
 (provide editor-external-files-init
          editor-refresh-external-files!)
 
-(define (external-file-log-error operation path err)
+(define (external-file-log-message operation path message)
   (displayln
     (string-append "external file " operation " failed for " path ": "
-                   (error-object-message err))))
+                   message)))
 
 (define (external-file-state document-id path)
-  (if (not (path-exists? path))
-      'missing
-      (with-handler
-        (lambda (err)
-          (external-file-log-error "check" path err)
-          'error)
-        (let ([modified-time (fs-metadata-modified (file-metadata path))]
-              [last-saved-time (editor-document-last-saved document-id)])
-          (cond [(not last-saved-time) 'error]
-                [(or (system-time>? modified-time last-saved-time)
-                     (system-time<? modified-time last-saved-time))
-                 'changed]
-                [else 'unchanged])))))
+  (define snapshot (filesystem-path-snapshot path))
+  (define state (FilesystemPathSnapshot-state snapshot))
+  (cond [(equal? state 'missing) 'missing]
+        [(equal? state 'error)
+         (external-file-log-message "check" path
+                                    (FilesystemPathSnapshot-error snapshot))
+         'error]
+        [else
+         (let ([modified-time (FilesystemPathSnapshot-modified snapshot)]
+               [last-saved-time (editor-document-last-saved document-id)])
+           (cond [(not last-saved-time) 'error]
+                 [(or (system-time>? modified-time last-saved-time)
+                      (system-time<? modified-time last-saved-time))
+                  'changed]
+                 [else 'unchanged]))]))
 
 (define (external-file-reload! document-id path)
   (with-handler
     (lambda (err)
-      (external-file-log-error "reload" path err)
+      (external-file-log-message "reload" path (error-object-message err))
       #f)
     (begin (editor-document-reload document-id) #t)))
+
+(define (editor-external-file-paths)
+  (filter (lambda (path) path)
+          (map editor-document->path (editor-all-documents))))
+
+(define (editor-external-files-snapshot)
+  (filesystem-paths-snapshot (editor-external-file-paths)))
 
 (define (external-files-fragment count label)
   (and (> count 0)
@@ -89,4 +105,8 @@
   (external-files-report! reloaded dirty missing check-failed reload-failed))
 
 (define (editor-external-files-init)
-  (register-hook 'terminal-focus-gained editor-refresh-external-files!))
+  (filesystem-watch-register!
+    'editor-external-files
+    (lambda () #t)
+    editor-external-files-snapshot
+    (lambda (_previous _current) (editor-refresh-external-files!))))

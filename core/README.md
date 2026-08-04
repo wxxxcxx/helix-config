@@ -4,6 +4,7 @@ Core contains feature-independent helpers. Modules in this directory must not
 depend on a concrete editor feature or produce startup side effects.
 
 - `collections.scm`: structural membership and uniqueness helpers.
+- `filesystem/`: comparable snapshots and the shared refresh lifecycle.
 - `list.scm`: bounded list slicing.
 - `path.scm`: platform-aware path roots, labels, joins, and directory listing.
 - `process.scm`: child-process stdout capture.

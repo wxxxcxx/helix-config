@@ -1,6 +1,9 @@
+(require (only-in "../../core/filesystem/watch/watch.scm"
+                  filesystem-watch-init))
 (require (only-in "features/file-manager/file-explorer/file-explorer.scm"
                   file-explorer-close
                   file-explorer-configure!
+                  file-explorer-init
                   file-explorer-open))
 (require (only-in "features/file-manager/file-tree/file-tree.scm"
                   file-tree-close
@@ -23,4 +26,6 @@
 ;; Keep the public entry module free of startup effects so the feature loader can
 ;; isolate load failures before any editor state is changed.
 (define (file-manager-init)
+  (filesystem-watch-init)
+  (file-explorer-init)
   (file-tree-init))
