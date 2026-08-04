@@ -6,6 +6,7 @@ editor state. Startup effects belong in the exported initialization function
 called from `init.scm`.
 
 - `editor/`: base editor options and theme registration
+- `eval/`: prompt, buffer, and selection evaluation commands
 - `statusline/`: statusline layout and indicators
 - `panel/`: left, right, and bottom slots with pluggable modes
 - `terminal/`: embedded terminal adapter

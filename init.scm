@@ -22,6 +22,10 @@
   (:load "features/editor/editor.scm")
   (:config (editor-init)))
 
+;; Command-only evaluation helpers, including Helix's prompt and buffer tools.
+(feature eval
+  (:load "features/eval/eval.scm"))
+
 (feature statusline
   (:load "features/statusline/statusline.scm")
   (:config (statusline-init)))
