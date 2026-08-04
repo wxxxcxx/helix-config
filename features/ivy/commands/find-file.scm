@@ -4,7 +4,9 @@
 (require (only-in "features/file-manager/core/files.scm"
                   fm-entry-label
                   fm-parent-dir
-                  fm-read-dir-names))
+                  fm-read-dir-names
+                  fm-windows-drive-root?
+                  fm-windows-drives-root?))
 (require (only-in "features/ivy/core.scm"
                   IvyCandidate
                   IvyCandidate-value))
@@ -14,6 +16,16 @@
 
 (define *ivy-find-file-directory* "")
 
+(define (find-file-root-directory? directory)
+  (or (string=? directory (path-separator))
+      (fm-windows-drive-root? directory)
+      (fm-windows-drives-root? directory)))
+
+(define (find-file-parent-directory directory)
+  (if (find-file-root-directory? directory)
+      directory
+      (fm-parent-dir directory)))
+
 (define (find-file-path-join directory name)
   (define separator (path-separator))
   (if (string=? name "")
@@ -21,10 +33,12 @@
       (string-append (trim-end-matches directory separator) separator name)))
 
 (define (find-file-prompt directory)
-  (string-append "Open  " directory (path-separator)))
+  (define separator (path-separator))
+  (string-append "Open  " directory
+                 (if (ends-with? directory separator) "" separator)))
 
 (define (find-file-candidates directory)
-  (define parent (fm-parent-dir directory))
+  (define parent (find-file-parent-directory directory))
   (define entries
     (map (lambda (path)
            (define directory? (is-dir? path))
@@ -64,7 +78,7 @@
   (define (open-input input)
     (open-path (find-file-path-join *ivy-find-file-directory* input)))
   (define (up-directory)
-    (define parent (fm-parent-dir *ivy-find-file-directory*))
+    (define parent (find-file-parent-directory *ivy-find-file-directory*))
     (unless (string=? parent *ivy-find-file-directory*)
       (find-file-enter-directory! parent)))
   (ivy-read (find-file-prompt *ivy-find-file-directory*)
