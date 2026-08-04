@@ -9,15 +9,6 @@
 (require (only-in "features/ivy/commands/project-search.scm" ivy-project-search))
 (require (only-in "features/ivy/commands/recent-file.scm" ivy-recent-file))
 (require (only-in "features/ivy/commands/theme.scm" ivy-theme))
-(require (only-in "steel-pty/panel.scm"
-                  hide-terminal
-                  new-term
-                  open-term
-                  switch-term
-                  switch-term-previous))
-(require (only-in "features/terminal/terminal.scm"
-                  terminal-kill-active
-                  terminal-toggle-fullscreen))
 (require (only-in "features/ivy/command-catalog.scm" ivy-native-command-bindings))
 
 (provide ivy-commands)
@@ -44,6 +35,28 @@
               [(string=? (trim (car lines)) "") (loop (cdr lines))]
               [else (trim (car lines))]))))
 
+(define (ivy-commands-terminal-bindings)
+  ;; Terminal is optional. Resolve its public commands only after the picker is
+  ;; invoked so a missing steel-pty package cannot prevent Ivy from loading.
+  (with-handler
+    (lambda (_) '())
+    (eval
+      '(require (only-in "features/terminal/terminal.scm"
+                         terminal-hide
+                         terminal-kill-active
+                         terminal-new
+                         terminal-open
+                         terminal-switch-next
+                         terminal-switch-previous
+                         terminal-toggle-fullscreen)))
+    (list (cons 'terminal-open (eval 'terminal-open))
+          (cons 'terminal-new (eval 'terminal-new))
+          (cons 'terminal-switch (eval 'terminal-switch-next))
+          (cons 'terminal-switch-previous (eval 'terminal-switch-previous))
+          (cons 'terminal-fullscreen (eval 'terminal-toggle-fullscreen))
+          (cons 'terminal-hide (eval 'terminal-hide))
+          (cons 'terminal-kill (eval 'terminal-kill-active)))))
+
 (define (ivy-commands-candidates)
   (define bindings
     (ivy-commands-unique-bindings
@@ -53,14 +66,8 @@
                     (cons 'ivy-buffer ivy-buffer)
                     (cons 'ivy-recent-file ivy-recent-file)
                     (cons 'ivy-theme ivy-theme)
-                    (cons 'terminal-open open-term)
-                    (cons 'terminal-new new-term)
-                    (cons 'terminal-switch switch-term)
-                    (cons 'terminal-switch-previous switch-term-previous)
-                    (cons 'terminal-fullscreen terminal-toggle-fullscreen)
-                    (cons 'terminal-hide hide-terminal)
-                    (cons 'terminal-kill terminal-kill-active)
                     (cons 'ivy-commands ivy-commands))
+              (ivy-commands-terminal-bindings)
               ivy-native-command-bindings)))
   (map (lambda (binding)
          (define name (car binding))

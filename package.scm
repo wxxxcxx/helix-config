@@ -133,15 +133,10 @@
           (string-append reference "^{commit}"))))
 
 (define (package-current-revision dependency)
-  ;; Forge creates a detached checkout plus refs/heads/HEAD for pinned git
-  ;; dependencies. Query that exact ref first to avoid Git's ambiguous-HEAD
-  ;; warning, then fall back to the regular repository HEAD.
-  (define forge-head
-    (package-git-value dependency
-                       (list "show-ref" "--hash" "--verify" "refs/heads/HEAD")))
-  (if (and forge-head (not (string=? forge-head "")))
-      forge-head
-      (package-git-value dependency (list "rev-parse" "--verify" "HEAD^{commit}"))))
+  ;; `@` always means the checked-out commit, even when an older Forge cache
+  ;; contains the ambiguous synthetic ref refs/heads/HEAD.
+  (package-git-value
+    dependency (list "rev-parse" "--verify" "--quiet" "@^{commit}")))
 
 (define (package-current-url dependency)
   (package-git-value dependency (list "remote" "get-url" "origin")))
@@ -183,18 +178,93 @@
             'stale
             'ready))))
 
+(define (package-clone-source! dependency)
+  (define source-path (package-source-path dependency))
+  (define source-root (package-steel-path "cog-sources"))
+  (unless (path-exists? source-root)
+    (create-directory! source-root))
+  (displayln (string-append "Cloning " (package-name dependency) " source..."))
+  (package-run! "git"
+                (list "clone" "--" (package-url dependency) source-path)))
+
+(define (package-fetch-branch! dependency branch)
+  (define remote-reference
+    (string-append "refs/remotes/origin/" branch))
+  (package-run!
+    "git"
+    (list "-C" (package-source-path dependency)
+          "fetch" "--force" "origin"
+          (string-append "+refs/heads/" branch ":" remote-reference)))
+  (package-run!
+    "git"
+    (list "-C" (package-source-path dependency)
+          "checkout" "--force" "-B" branch remote-reference)))
+
+(define (package-fetch-tag! dependency tag)
+  (define reference (string-append "refs/tags/" tag))
+  (package-run!
+    "git"
+    (list "-C" (package-source-path dependency)
+          "fetch" "--force" "origin"
+          (string-append "+" reference ":" reference)))
+  (package-run!
+    "git"
+    (list "-C" (package-source-path dependency)
+          "checkout" "--force" "--detach" reference)))
+
+(define (package-fetch-commit! dependency commit)
+  (package-run!
+    "git"
+    (list "-C" (package-source-path dependency)
+          "fetch" "--force" "origin" commit))
+  (package-run!
+    "git"
+    (list "-C" (package-source-path dependency)
+          "checkout" "--force" "--detach" commit)))
+
+(define (package-fetch-default! dependency)
+  (define source-path (package-source-path dependency))
+  (package-run! "git"
+                (list "-C" source-path "fetch" "--force" "--prune" "origin"))
+  (define remote-head
+    (package-git-value
+      dependency
+      (list "symbolic-ref" "--quiet" "refs/remotes/origin/HEAD")))
+  (unless remote-head
+    (error (string-append "package " (package-name dependency)
+                          " origin has no default branch")))
+  (package-run! "git"
+                (list "-C" source-path
+                      "checkout" "--force" "--detach" remote-head)))
+
+(define (package-fetch-reference! dependency)
+  (define reference (package-reference dependency))
+  (define kind (package-reference-kind dependency))
+  (cond [(not reference) (package-fetch-default! dependency)]
+        [(equal? kind 'branch) (package-fetch-branch! dependency reference)]
+        [(equal? kind 'tag) (package-fetch-tag! dependency reference)]
+        [else (package-fetch-commit! dependency reference)]))
+
 (define (package-prepare-source! dependency)
   (define source-path (package-source-path dependency))
-  (define source-url (package-current-url dependency))
-  (cond [(not (path-exists? source-path)) void]
-        [(not source-url)
-         (displayln (string-append "Removing invalid source cache: " source-path))
-         (delete-directory! source-path)]
-        [(not (string=? source-url (package-url dependency)))
-         (displayln (string-append "Updating " (package-name dependency) " origin"))
-         (package-run! "git"
-                       (list "-C" source-path "remote" "set-url" "origin"
-                             (package-url dependency)))]))
+  (define git-path (package-path-join source-path ".git"))
+  (when (and (path-exists? source-path) (not (path-exists? git-path)))
+    (displayln (string-append "Removing invalid source cache: " source-path))
+    (delete-directory! source-path))
+  (unless (path-exists? source-path)
+    (package-clone-source! dependency))
+  (unless (string=? (or (package-current-url dependency) "")
+                       (package-url dependency))
+    (displayln (string-append "Updating " (package-name dependency) " origin"))
+    (package-run! "git"
+                  (list "-C" source-path "remote" "set-url" "origin"
+                        (package-url dependency))))
+  ;; Older Forge versions created this synthetic branch for pinned revisions.
+  ;; It makes Git treat HEAD as ambiguous and is not used by this installer.
+  (package-run! "git"
+                (list "-C" source-path "update-ref" "-d" "refs/heads/HEAD"))
+  (package-fetch-reference! dependency)
+  source-path)
 
 (define (package-install! dependency #:force [force #f])
   (define status (package-status dependency))
@@ -203,15 +273,11 @@
       (begin
         (unless (which "forge")
           (error "forge is required; build the Steel-enabled Helix fork first"))
-        (let ([arguments
-               (append (list "pkg" "install" "--git" (package-url dependency))
-                       (if (package-reference dependency)
-                           (list "--rev" (package-reference dependency))
-                           '())
-                       (list "--force"))])
-          (package-prepare-source! dependency)
+        (unless (which "git")
+          (error "git is required to install Steel packages"))
+        (let ([source-path (package-prepare-source! dependency)])
           (displayln (string-append "Installing " (package-name dependency) " with Forge..."))
-          (package-run! "forge" arguments)
+          (package-run! "forge" (list "install" source-path "--force"))
           (unless (equal? (package-status dependency) 'ready)
             (error (string-append "package verification failed: "
                                   (package-name dependency))))))))

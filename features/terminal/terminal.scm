@@ -9,9 +9,10 @@
                   panel-show!
                   panel-toggle-fullscreen!))
 
-;; Run `steel setup.scm` once before initializing the embedded terminal.
+;; The owning feature installs steel-pty before this module is loaded.
 
 (provide terminal-init
+         terminal-hide
          terminal-kill-active
          terminal-new
          terminal-open
@@ -24,6 +25,7 @@
 
 (define terminal-raise-if-active! raise-terminal-if-active!)
 (define terminal-set-horizontal-insets! set-terminal-horizontal-insets!)
+(define terminal-hide hide-terminal)
 ;;@doc
 ;; Switch to the next terminal.
 (define terminal-switch-next switch-term)
